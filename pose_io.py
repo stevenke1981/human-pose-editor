@@ -16,51 +16,63 @@ def draw_skeleton_on_painter(
     points: List[Tuple[float, float]],
     scale_factor: float,
     labels_mode: str = "none",
-    lang: str = "zh_TW"
+    lang: str = "zh_TW",
+    skeleton_style: str = "classic"
 ):
     """
-    Draws a single skeleton (points + connections) on a QPainter.
+    Draws a single skeleton (points + connections or 3D mannequin) on a QPainter.
     Scales joint radius, bone thickness, and text labels by scale_factor.
     """
     # Proportional sizes
     joint_radius = max(3.0, 4.5 * scale_factor)
     bone_width = max(2.5, 4.0 * scale_factor)
     
-    # 1. Draw Bones (Connections)
-    for idx, (p_idx, c_idx) in enumerate(POSE_CONNECTIONS):
-        if p_idx < len(points) and c_idx < len(points):
-            p1 = points[p_idx]
-            p2 = points[c_idx]
-            
-            # Avoid drawing joints that are exactly at (0, 0) or uninitialized
-            if (p1[0] == 0 and p1[1] == 0) or (p2[0] == 0 and p2[1] == 0):
+    if skeleton_style == "mannequin":
+        from mannequin_renderer import draw_mannequin
+        draw_mannequin(painter, points, scale_factor)
+    else:
+        # 1. Draw Bones (Connections)
+        for idx, (p_idx, c_idx) in enumerate(POSE_CONNECTIONS):
+            if p_idx < len(points) and c_idx < len(points):
+                p1 = points[p_idx]
+                p2 = points[c_idx]
+                
+                # Avoid drawing joints that are exactly at (0, 0) or uninitialized
+                if (p1[0] == 0 and p1[1] == 0) or (p2[0] == 0 and p2[1] == 0):
+                    continue
+                    
+                color = CONNECTION_COLORS[idx]
+                q_color = QColor(color[0], color[1], color[2], 255)
+                
+                pen = QPen(q_color)
+                pen.setWidthF(bone_width)
+                pen.setCapStyle(Qt.PenCapStyle.RoundCap)
+                painter.setPen(pen)
+                
+                painter.drawLine(QPointF(p1[0], p1[1]), QPointF(p2[0], p2[1]))
+                
+        # 2. Draw Joints
+        for idx, pt in enumerate(points):
+            if pt[0] == 0 and pt[1] == 0:
                 continue
                 
-            color = CONNECTION_COLORS[idx]
+            color = JOINT_COLORS[idx]
             q_color = QColor(color[0], color[1], color[2], 255)
             
-            pen = QPen(q_color)
-            pen.setWidthF(bone_width)
-            pen.setCapStyle(Qt.PenCapStyle.RoundCap)
-            painter.setPen(pen)
+            painter.setPen(Qt.PenStyle.NoPen)
+            painter.setBrush(QBrush(q_color))
             
-            painter.drawLine(QPointF(p1[0], p1[1]), QPointF(p2[0], p2[1]))
-            
-    # 2. Draw Joints
-    for idx, pt in enumerate(points):
-        if pt[0] == 0 and pt[1] == 0:
-            continue
-            
-        color = JOINT_COLORS[idx]
-        q_color = QColor(color[0], color[1], color[2], 255)
-        
-        painter.setPen(Qt.PenStyle.NoPen)
-        painter.setBrush(QBrush(q_color))
-        
-        painter.drawEllipse(QPointF(pt[0], pt[1]), joint_radius, joint_radius)
+            painter.drawEllipse(QPointF(pt[0], pt[1]), joint_radius, joint_radius)
 
-        # 3. Draw Joint Text Labels (Index or Name)
-        if labels_mode != "none":
+    # 3. Draw Joint Text Labels (Index or Name)
+    if labels_mode != "none":
+        for idx, pt in enumerate(points):
+            if pt[0] == 0 and pt[1] == 0:
+                continue
+                
+            color = JOINT_COLORS[idx]
+            q_color = QColor(color[0], color[1], color[2], 255)
+            
             painter.save()
             # Set high-quality font scaled to output image size
             font_size = int(max(8, 10 * scale_factor))
@@ -106,7 +118,8 @@ def export_to_image(
     show_scale_axes: bool = True,
     show_pose_name: bool = True,
     bg_image_path: str = "",
-    bg_opacity: float = 1.0
+    bg_opacity: float = 1.0,
+    skeleton_style: str = "classic"
 ) -> bool:
     """
     Renders skeletons headlessly onto a QImage and exports to file_path.
@@ -338,7 +351,7 @@ def export_to_image(
     # 2. Draw Skeletons
     for idx, sk in enumerate(skeletons):
         if sk.get("visible", True):
-            draw_skeleton_on_painter(painter, sk["points"], scale_factor, labels_mode, lang)
+            draw_skeleton_on_painter(painter, sk["points"], scale_factor, labels_mode, lang, skeleton_style)
             
             # Draw Floating Pose Name Label above the head
             if show_pose_name:

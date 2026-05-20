@@ -546,6 +546,11 @@ class MainWindow(QMainWindow):
         self.combo_labels = QComboBox(self)
         self.combo_labels.currentIndexChanged.connect(self.change_labels_mode)
         
+        # Skeleton Style dropdown
+        self.lbl_style = QLabel(i18n.get_translation("skeleton_style", self.lang), self)
+        self.combo_style = QComboBox(self)
+        self.combo_style.currentIndexChanged.connect(self.change_skeleton_style)
+        
         # Scale & XYZ axes checkbox
         self.chk_scale_axes = QCheckBox(i18n.get_translation("show_scale_axes", self.lang), self)
         self.chk_scale_axes.setChecked(True)
@@ -568,6 +573,8 @@ class MainWindow(QMainWindow):
         grp_settings_layout.addWidget(self.combo_guide)
         grp_settings_layout.addWidget(self.lbl_labels)
         grp_settings_layout.addWidget(self.combo_labels)
+        grp_settings_layout.addWidget(self.lbl_style)
+        grp_settings_layout.addWidget(self.combo_style)
         grp_settings_layout.addWidget(self.chk_scale_axes)
         grp_settings_layout.addWidget(self.chk_pose_name)
         grp_settings_layout.addWidget(self.chk_export_bg)
@@ -715,6 +722,16 @@ class MainWindow(QMainWindow):
         self.combo_labels.addItem(i18n.get_translation("labels_names", self.lang), "names")
         self.combo_labels.setCurrentIndex(curr_labels_idx)
         self.combo_labels.blockSignals(False)
+        
+        # 4.5 Skeleton Style
+        self.lbl_style.setText(i18n.get_translation("skeleton_style", self.lang))
+        curr_style_idx = max(0, self.combo_style.currentIndex())
+        self.combo_style.blockSignals(True)
+        self.combo_style.clear()
+        self.combo_style.addItem(i18n.get_translation("style_classic", self.lang), "classic")
+        self.combo_style.addItem(i18n.get_translation("style_mannequin", self.lang), "mannequin")
+        self.combo_style.setCurrentIndex(curr_style_idx)
+        self.combo_style.blockSignals(False)
         
         # Scale & XYZ axes checkbox
         self.chk_scale_axes.setText(i18n.get_translation("show_scale_axes", self.lang))
@@ -1037,6 +1054,12 @@ class MainWindow(QMainWindow):
         if labels_mode:
             self.canvas.set_labels_mode(labels_mode)
 
+    def change_skeleton_style(self):
+        """Updates the skeleton/mannequin rendering style on the canvas."""
+        style = self.combo_style.currentData()
+        if style:
+            self.canvas.set_skeleton_style(style)
+
     def change_scale_axes_visibility(self):
         """Toggles drawing of scale bar and XYZ axes overlay on the canvas."""
         self.canvas.set_show_scale_axes(self.chk_scale_axes.isChecked())
@@ -1101,6 +1124,7 @@ class MainWindow(QMainWindow):
             export_bg_path = self.canvas.bg_image_path
             export_bg_opacity = self.canvas.bg_opacity
 
+        style = self.combo_style.currentData() or "classic"
         success = pose_io.export_to_image(
             canvas_size=(self.canvas_width, self.canvas_height),
             skeletons=self.skeletons,
@@ -1111,7 +1135,8 @@ class MainWindow(QMainWindow):
             show_scale_axes=self.chk_scale_axes.isChecked(),
             show_pose_name=self.chk_pose_name.isChecked(),
             bg_image_path=export_bg_path,
-            bg_opacity=export_bg_opacity
+            bg_opacity=export_bg_opacity,
+            skeleton_style=style
         )
         
         if success:

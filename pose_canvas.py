@@ -40,6 +40,7 @@ class PoseCanvas(QWidget):
 
         # Labels & Reference Coordinates
         self.labels_mode = "none"  # "none", "indices", "names"
+        self.skeleton_style = "classic"  # "classic", "mannequin"
         self.lang = "zh_TW"
         self.show_scale_axes = True
         self.show_pose_name = True
@@ -57,6 +58,10 @@ class PoseCanvas(QWidget):
 
     def set_skeletons(self, skeletons: List[Dict]):
         self.skeletons = skeletons
+        self.update()
+
+    def set_skeleton_style(self, style: str):
+        self.skeleton_style = style
         self.update()
 
     def set_canvas_size(self, width: int, height: int):
@@ -492,28 +497,39 @@ class PoseCanvas(QWidget):
         # Selected skeleton gets a subtle glow or hover effect on joints
         select_halo_radius = joint_radius + 4
         
-        # 1. Draw Bones
-        for idx, (p_idx, c_idx) in enumerate(POSE_CONNECTIONS):
-            if p_idx < len(points) and c_idx < len(points):
-                pt1 = points[p_idx]
-                pt2 = points[c_idx]
-                
-                # Skip uninitialized / hidden joints
-                if (pt1[0] == 0 and pt1[1] == 0) or (pt2[0] == 0 and pt2[1] == 0):
-                    continue
+        # 1. Draw Body/Bones
+        if self.skeleton_style == "mannequin":
+            screen_pts = []
+            for pt in points:
+                if pt[0] == 0 and pt[1] == 0:
+                    screen_pts.append((0.0, 0.0))
+                else:
+                    screen_pts.append(self.to_screen_coords(pt[0], pt[1]))
+            from mannequin_renderer import draw_mannequin
+            draw_mannequin(painter, screen_pts, self.scale_factor)
+        else:
+            # Draw Bones
+            for idx, (p_idx, c_idx) in enumerate(POSE_CONNECTIONS):
+                if p_idx < len(points) and c_idx < len(points):
+                    pt1 = points[p_idx]
+                    pt2 = points[c_idx]
                     
-                sx1, sy1 = self.to_screen_coords(pt1[0], pt1[1])
-                sx2, sy2 = self.to_screen_coords(pt2[0], pt2[1])
-                
-                rgb = CONNECTION_COLORS[idx]
-                color = QColor(rgb[0], rgb[1], rgb[2], 255)
-                
-                pen = QPen(color)
-                pen.setWidthF(bone_width)
-                pen.setCapStyle(Qt.PenCapStyle.RoundCap)
-                painter.setPen(pen)
-                
-                painter.drawLine(QPointF(sx1, sy1), QPointF(sx2, sy2))
+                    # Skip uninitialized / hidden joints
+                    if (pt1[0] == 0 and pt1[1] == 0) or (pt2[0] == 0 and pt2[1] == 0):
+                        continue
+                        
+                    sx1, sy1 = self.to_screen_coords(pt1[0], pt1[1])
+                    sx2, sy2 = self.to_screen_coords(pt2[0], pt2[1])
+                    
+                    rgb = CONNECTION_COLORS[idx]
+                    color = QColor(rgb[0], rgb[1], rgb[2], 255)
+                    
+                    pen = QPen(color)
+                    pen.setWidthF(bone_width)
+                    pen.setCapStyle(Qt.PenCapStyle.RoundCap)
+                    painter.setPen(pen)
+                    
+                    painter.drawLine(QPointF(sx1, sy1), QPointF(sx2, sy2))
 
         # 2. Draw Selected Character Torso Glow (Dotted line around spine/shoulders)
         if is_selected and len(points) > 5:
@@ -525,29 +541,33 @@ class PoseCanvas(QWidget):
             painter.drawEllipse(QPointF(nx, ny), joint_radius * 2.5, joint_radius * 2.5)
 
         # 3. Draw Joints
-        for idx, pt in enumerate(points):
-            if pt[0] == 0 and pt[1] == 0:
-                continue
+        if self.skeleton_style != "mannequin" or is_selected:
+            for idx, pt in enumerate(points):
+                if pt[0] == 0 and pt[1] == 0:
+                    continue
+                    
+                sx, sy = self.to_screen_coords(pt[0], pt[1])
+                rgb = JOINT_COLORS[idx]
+                color = QColor(rgb[0], rgb[1], rgb[2], 255)
                 
-            sx, sy = self.to_screen_coords(pt[0], pt[1])
-            rgb = JOINT_COLORS[idx]
-            color = QColor(rgb[0], rgb[1], rgb[2], 255)
-            
-            # Joint Highlight if character is selected
-            if is_selected:
+                # Joint Highlight if character is selected
+                if is_selected:
+                    painter.setPen(Qt.PenStyle.NoPen)
+                    painter.setBrush(QBrush(QColor(rgb[0], rgb[1], rgb[2], 50)))
+                    painter.drawEllipse(QPointF(sx, sy), select_halo_radius, select_halo_radius)
+                    
+                # Draw standard solid joint
                 painter.setPen(Qt.PenStyle.NoPen)
-                painter.setBrush(QBrush(QColor(rgb[0], rgb[1], rgb[2], 50)))
-                painter.drawEllipse(QPointF(sx, sy), select_halo_radius, select_halo_radius)
-                
-            # Draw standard solid joint
-            painter.setPen(Qt.PenStyle.NoPen)
-            if is_locked:
-                # Dim joints if locked
-                painter.setBrush(QBrush(QColor(128, 128, 128)))
-            else:
-                painter.setBrush(QBrush(color))
-                
-            painter.drawEllipse(QPointF(sx, sy), joint_radius, joint_radius)
+                if is_locked:
+                    # Dim joints if locked
+                    painter.setBrush(QBrush(QColor(128, 128, 128)))
+                else:
+                    if self.skeleton_style == "mannequin":
+                        painter.setBrush(QBrush(QColor(rgb[0], rgb[1], rgb[2], 180)))
+                    else:
+                        painter.setBrush(QBrush(color))
+                    
+                painter.drawEllipse(QPointF(sx, sy), joint_radius, joint_radius)
 
             # 4. Draw Joint Text Labels (Index or Name)
             if self.labels_mode != "none":
