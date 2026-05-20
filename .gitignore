@@ -1,0 +1,27 @@
+# Virtual environment
+.venv/
+venv/
+ENV/
+env/
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Operating system files
+.DS_Store
+Thumbs.db
+
+# Output and generated files (optional but good practice for editors)
+pose_2026*.png
+pose_2026*_prompt.txt
+pose_output*.png
+
+# Project configuration or build
+.eggs/
+.pytest_cache/
+build/
+dist/
+*.egg-info/
