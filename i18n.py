@@ -91,6 +91,7 @@ TRANSLATIONS = {
         "joint_15": "左眼",
         "joint_16": "右耳",
         "joint_17": "左耳",
+        "scale_unit": "像素",
     },
     "en_US": {
         "title": "Human Pose Editor - Professional Single/Double Edition",
@@ -178,6 +179,7 @@ TRANSLATIONS = {
         "joint_15": "LEye",
         "joint_16": "REar",
         "joint_17": "LEar",
+        "scale_unit": "px",
     }
 }
 

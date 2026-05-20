@@ -210,6 +210,111 @@ def export_to_image(
         draw_label(float(width), float(height), f"({width}, {height})", "right_bottom")
         draw_label(cx, cy, f"({width // 2}, {height // 2})", "left_top")
         
+        # --- 2. Scale Bar & XYZ Coordinate Tripod ---
+        scale = scale_factor
+        text_bg = QColor(0, 0, 0, 180) if background_mode != "white" else QColor(255, 255, 255, 210)
+        axis_text_color = QColor(255, 255, 255) if background_mode != "white" else QColor(0, 0, 0)
+        border_color = QColor(80, 80, 90, 150)
+        
+        # 100 units in virtual coordinates. Length in screen pixels = 100 * scale
+        scale_val_units = 100
+        bar_w = scale_val_units * scale
+        
+        # Position panel rect at bottom-left of the canvas box
+        panel_w = bar_w + 30 * scale
+        panel_h = 75 * scale
+        panel_rect = QRectF(
+            10 * scale,
+            float(height) - panel_h - 10 * scale,
+            panel_w,
+            panel_h
+        )
+        
+        # Draw panel background
+        painter.setPen(QPen(border_color, 1.0))
+        painter.setBrush(QBrush(text_bg))
+        painter.drawRoundedRect(panel_rect, 4.0 * scale, 4.0 * scale)
+        
+        # Draw Map Scale Bar
+        scale_line_y = panel_rect.y() + panel_rect.height() - 15 * scale
+        scale_left = panel_rect.x() + 15 * scale
+        scale_right = scale_left + bar_w
+        scale_mid = scale_left + bar_w / 2
+        
+        # Line pen
+        line_color = QColor(0, 229, 255) if background_mode == "black" else QColor(0, 100, 255)
+        line_pen = QPen(line_color, max(1.5, 2.0 * scale))
+        painter.setPen(line_pen)
+        
+        # Horizontal bar line
+        painter.drawLine(QPointF(scale_left, scale_line_y), QPointF(scale_right, scale_line_y))
+        # Ticks (vertical lines at left, middle, right)
+        tick_h = 5 * scale
+        painter.drawLine(QPointF(scale_left, scale_line_y - tick_h), QPointF(scale_left, scale_line_y + tick_h))
+        painter.drawLine(QPointF(scale_mid, scale_line_y - tick_h), QPointF(scale_mid, scale_line_y + tick_h))
+        painter.drawLine(QPointF(scale_right, scale_line_y - tick_h), QPointF(scale_right, scale_line_y + tick_h))
+        
+        # Scale Label
+        font_scale = QFont("Consolas", int(max(8, 10 * scale)))
+        font_scale.setBold(True)
+        painter.setFont(font_scale)
+        painter.setPen(axis_text_color)
+        
+        unit_str = i18n.get_translation("scale_unit", lang)
+        scale_text = f"{scale_val_units} {unit_str}"
+        fm = painter.fontMetrics()
+        tx = scale_left + (bar_w - fm.horizontalAdvance(scale_text)) / 2
+        ty = scale_line_y - tick_h - 2 * scale
+        painter.drawText(QPointF(tx, ty), scale_text)
+        
+        # --- XYZ Coordinate Axis Indicator (Tripod) ---
+        axes_cx = panel_rect.x() + 45 * scale
+        axes_cy = panel_rect.y() + 28 * scale
+        axis_len = 16 * scale
+        
+        # X-axis: pointing right
+        x_end_x = axes_cx + axis_len
+        x_end_y = axes_cy
+        
+        # Y-axis: pointing down
+        y_end_x = axes_cx
+        y_end_y = axes_cy + axis_len
+        
+        # Z-axis: pointing diagonally up-left
+        z_len = axis_len * 0.8
+        z_end_x = axes_cx - z_len * 0.707
+        z_end_y = axes_cy - z_len * 0.707
+        
+        # Helper to draw colored arrow with label
+        def draw_arrow(ex, ey, color, label, font):
+            painter.setPen(QPen(color, max(1.5, 2.0 * scale), Qt.PenStyle.SolidLine, Qt.PenCapStyle.RoundCap))
+            painter.drawLine(QPointF(axes_cx, axes_cy), QPointF(ex, ey))
+            
+            painter.setBrush(QBrush(color))
+            painter.setPen(Qt.PenStyle.NoPen)
+            painter.drawEllipse(QPointF(ex, ey), 2.0 * scale, 2.0 * scale)
+            
+            painter.setFont(font)
+            painter.setPen(color)
+            lx = ex + (4.0 * scale if ex >= axes_cx else -10.0 * scale)
+            ly = ey + (4.0 * scale if ey >= axes_cy else -2.0 * scale)
+            painter.drawText(QPointF(lx, ly), label)
+            
+        font_axis = QFont("Consolas", int(max(7, 9 * scale)))
+        font_axis.setBold(True)
+        
+        # Draw Z-axis first
+        draw_arrow(z_end_x, z_end_y, QColor(0, 130, 255), "Z", font_axis)
+        # Draw X-axis
+        draw_arrow(x_end_x, x_end_y, QColor(255, 40, 80), "X", font_axis)
+        # Draw Y-axis
+        draw_arrow(y_end_x, y_end_y, QColor(0, 220, 100), "Y", font_axis)
+        
+        # Draw Origin center node
+        painter.setPen(QPen(axis_text_color, 1.0))
+        painter.setBrush(QBrush(QColor(180, 180, 190)))
+        painter.drawEllipse(QPointF(axes_cx, axes_cy), 2.0 * scale, 2.0 * scale)
+        
         painter.restore()
         
     # 2. Draw Skeletons
