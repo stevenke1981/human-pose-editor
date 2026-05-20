@@ -556,6 +556,10 @@ class MainWindow(QMainWindow):
         self.chk_pose_name.setChecked(True)
         self.chk_pose_name.toggled.connect(self.change_pose_name_visibility)
         
+        # Export background image checkbox
+        self.chk_export_bg = QCheckBox(i18n.get_translation("export_bg", self.lang), self)
+        self.chk_export_bg.setChecked(True)
+        
         grp_settings_layout.addWidget(self.lbl_bg_color)
         grp_settings_layout.addWidget(self.combo_bg_color)
         grp_settings_layout.addWidget(self.lbl_resolution)
@@ -566,6 +570,7 @@ class MainWindow(QMainWindow):
         grp_settings_layout.addWidget(self.combo_labels)
         grp_settings_layout.addWidget(self.chk_scale_axes)
         grp_settings_layout.addWidget(self.chk_pose_name)
+        grp_settings_layout.addWidget(self.chk_export_bg)
         
         # Ref Background Trace image load
         self.lbl_bg_trace = QLabel(i18n.get_translation("bg_image", self.lang), self)
@@ -716,6 +721,9 @@ class MainWindow(QMainWindow):
         
         # Pose Name checkbox
         self.chk_pose_name.setText(i18n.get_translation("show_pose_name", self.lang))
+        
+        # Export background image checkbox
+        self.chk_export_bg.setText(i18n.get_translation("export_bg", self.lang))
         
         # Load background reference block
         self.lbl_bg_trace.setText(i18n.get_translation("bg_image", self.lang))
@@ -1085,6 +1093,14 @@ class MainWindow(QMainWindow):
             bg_mode = "black"
             
         labels_mode = self.combo_labels.currentData() or "none"
+        
+        # Check if reference background image should be exported
+        export_bg_path = ""
+        export_bg_opacity = 1.0
+        if self.chk_export_bg.isChecked() and self.canvas.bg_image_path:
+            export_bg_path = self.canvas.bg_image_path
+            export_bg_opacity = self.canvas.bg_opacity
+
         success = pose_io.export_to_image(
             canvas_size=(self.canvas_width, self.canvas_height),
             skeletons=self.skeletons,
@@ -1093,7 +1109,9 @@ class MainWindow(QMainWindow):
             labels_mode=labels_mode,
             lang=self.lang,
             show_scale_axes=self.chk_scale_axes.isChecked(),
-            show_pose_name=self.chk_pose_name.isChecked()
+            show_pose_name=self.chk_pose_name.isChecked(),
+            bg_image_path=export_bg_path,
+            bg_opacity=export_bg_opacity
         )
         
         if success:

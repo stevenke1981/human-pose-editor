@@ -73,6 +73,7 @@ TRANSLATIONS = {
         "labels_names": "部位名稱 (Nose...)",
         "show_scale_axes": "顯示比例尺與空間方向",
         "show_pose_name": "顯示姿勢名稱",
+        "export_bg": "匯出時包含背景參考圖",
         "pose_custom": "自訂姿勢",
         "export_success_sidecar_msg": "圖片與 Gemini 旁路提示詞已成功儲存至:\n{}\n及\n{}",
         # Joint names (zh_TW)
@@ -164,6 +165,7 @@ TRANSLATIONS = {
         "labels_names": "Joint Names (Nose...)",
         "show_scale_axes": "Show Scale & XYZ Axes",
         "show_pose_name": "Show Pose Name",
+        "export_bg": "Include reference background on export",
         "pose_custom": "Custom Pose",
         "export_success_sidecar_msg": "Image and Gemini sidecar prompt saved successfully to:\n{}\nand\n{}",
         # Joint names (en_US)

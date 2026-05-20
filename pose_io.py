@@ -5,7 +5,7 @@ coordinate boundary/reference markers, and sidecar prompt generation.
 """
 import os
 from typing import List, Dict, Tuple
-from PySide6.QtGui import QImage, QPainter, QColor, QPen, QBrush, QFont
+from PySide6.QtGui import QImage, QPainter, QColor, QPen, QBrush, QFont, QPixmap
 from PySide6.QtCore import Qt, QPointF, QRectF
 from pose_presets import POSE_CONNECTIONS, CONNECTION_COLORS, JOINT_COLORS
 import i18n
@@ -104,7 +104,9 @@ def export_to_image(
     labels_mode: str = "none",
     lang: str = "zh_TW",
     show_scale_axes: bool = True,
-    show_pose_name: bool = True
+    show_pose_name: bool = True,
+    bg_image_path: str = "",
+    bg_opacity: float = 1.0
 ) -> bool:
     """
     Renders skeletons headlessly onto a QImage and exports to file_path.
@@ -145,6 +147,16 @@ def export_to_image(
     painter = QPainter(image)
     # Enable high-quality anti-aliasing
     painter.setRenderHint(QPainter.RenderHint.Antialiasing, True)
+    
+    # Draw Background Tracing Image if provided
+    if bg_image_path and os.path.exists(bg_image_path):
+        bg_pixmap = QPixmap(bg_image_path)
+        if not bg_pixmap.isNull():
+            painter.save()
+            painter.setOpacity(bg_opacity)
+            painter.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform, True)
+            painter.drawPixmap(image.rect(), bg_pixmap)
+            painter.restore()
     
     # Calculate scale factor relative to 512px base size
     base_dim = 512.0
