@@ -134,6 +134,28 @@ POSE_DISPLAY_NAMES = {
     "daily_defend": {"zh_TW": "日常 - 雙臂交叉格擋", "en_US": "Daily - Arm Cross Guard"},
     "daily_victory": {"zh_TW": "日常 - 比雙勝利剪刀手", "en_US": "Daily - Double Victory Pose"},
 
+    # === ACTION & COMBAT POSES (20) ===
+    "martial_kungfu_bow": {"zh_TW": "動作格鬥 - 武術弓步衝拳", "en_US": "Combat - Bow Stance Punch"},
+    "martial_high_kick": {"zh_TW": "動作格鬥 - 旋風高踢腿", "en_US": "Combat - High Roundhouse Kick"},
+    "martial_flying_kick": {"zh_TW": "動作格鬥 - 空中飛踢", "en_US": "Combat - Flying Side Kick"},
+    "martial_judo_throw": {"zh_TW": "動作格鬥 - 柔道過肩摔準備", "en_US": "Combat - Judo Throw Prep"},
+    "martial_defensive_guard": {"zh_TW": "動作格鬥 - 雙臂交叉防禦", "en_US": "Combat - Crossed Arm Guard"},
+    "martial_samurai_draw": {"zh_TW": "動作格鬥 - 武士拔刀居合斬", "en_US": "Combat - Samurai Draw Stance"},
+    "martial_crane_stance": {"zh_TW": "動作格鬥 - 少林鶴形獨立式", "en_US": "Combat - Shaolin Crane Stance"},
+    "martial_hero_landing": {"zh_TW": "動作格鬥 - 超級英雄三點落地", "en_US": "Combat - Superhero Landing"},
+    "martial_backflip": {"zh_TW": "動作格鬥 - 空中後空翻", "en_US": "Combat - Backflip mid-air"},
+    "martial_ninja_squat": {"zh_TW": "動作格鬥 - 忍者低空伏地", "en_US": "Combat - Ninja Crouched Stealth"},
+    "martial_matrix_dodge": {"zh_TW": "動作格鬥 - 駭客任務後仰閃避", "en_US": "Combat - Matrix Bullet Dodge"},
+    "martial_double_punch": {"zh_TW": "動作格鬥 - 拳擊雙拳出擊", "en_US": "Combat - Double Punch Stance"},
+    "martial_wrestle_prep": {"zh_TW": "動作格鬥 - 摔角抱摔預備", "en_US": "Combat - Wrestling Grapple Prep"},
+    "martial_spear_thrust": {"zh_TW": "動作格鬥 - 長槍全力突刺", "en_US": "Combat - Spear Thrust"},
+    "martial_levitation": {"zh_TW": "動作格鬥 - 氣功打坐冥想懸浮", "en_US": "Combat - Meditative Levitation"},
+    "martial_victory_sword": {"zh_TW": "動作格鬥 - 戰士勝利揮劍", "en_US": "Combat - Victory Sword Raised"},
+    "martial_crouching_tiger": {"zh_TW": "動作格鬥 - 臥虎潛地突襲", "en_US": "Combat - Crouching Tiger"},
+    "martial_fencing_lunge": {"zh_TW": "動作格鬥 - 擊劍弓步刺擊", "en_US": "Combat - Fencing Lunge"},
+    "martial_parkour_vault": {"zh_TW": "動作格鬥 - 跑酷側身撐越", "en_US": "Combat - Parkour Side Vault"},
+    "martial_hadouken": {"zh_TW": "動作格鬥 - 雙手波動拳發波", "en_US": "Combat - Hadouken Energy Blast"},
+
     # 6. DOUBLE POSES (15)
     "double_shake": {"zh_TW": "雙人 - 握手合影", "en_US": "Double - Classic Handshake"},
     "double_hug": {"zh_TW": "雙人 - 溫暖擁抱", "en_US": "Double - Warm Hug"},
@@ -421,7 +443,29 @@ SINGLE_POSE_PARAMS = {
     "daily_clap": (10.0, 45.0, 95.0, -45.0, -95.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0),
     "daily_look_far": (5.0, -20.0, 10.0, 135.0, -135.0, 10.0, -10.0, -10.0, 10.0, -45.0, 0.0),
     "daily_defend": (15.0, 45.0, 135.0, -45.0, -135.0, 20.0, -20.0, -20.0, 20.0, 0.0, 0.0),
-    "daily_victory": (0.0, 115.0, 45.0, -115.0, -45.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0)
+    "daily_victory": (0.0, 115.0, 45.0, -115.0, -45.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0),
+
+    # === ACTION & COMBAT POSES (20) ===
+    "martial_kungfu_bow": (15.0, -45.0, 0.0, 45.0, 90.0, 60.0, -90.0, -45.0, 0.0, 0.0, 0.0),
+    "martial_high_kick": (-30.0, 45.0, 45.0, -45.0, -45.0, -110.0, 0.0, 20.0, 0.0, 20.0, 0.0),
+    "martial_flying_kick": (-45.0, 90.0, 45.0, -90.0, -45.0, -90.0, 0.0, 60.0, -120.0, 45.0, 45.0),
+    "martial_judo_throw": (45.0, -60.0, 45.0, -60.0, 45.0, 30.0, -30.0, 0.0, 0.0, -20.0, 0.0),
+    "martial_defensive_guard": (10.0, 120.0, 90.0, -120.0, -90.0, 45.0, -45.0, 45.0, -45.0, -10.0, 0.0),
+    "martial_samurai_draw": (20.0, 45.0, 80.0, -45.0, -30.0, 90.0, -90.0, 40.0, -110.0, 10.0, 0.0),
+    "martial_crane_stance": (5.0, -110.0, 20.0, 110.0, -20.0, -90.0, 100.0, 20.0, -30.0, 0.0, 0.0),
+    "martial_hero_landing": (75.0, -60.0, 30.0, 120.0, 20.0, 120.0, -120.0, 90.0, -90.0, -60.0, 0.0),
+    "martial_backflip": (-30.0, -135.0, -45.0, 135.0, 45.0, -90.0, 90.0, -90.0, 90.0, -30.0, 180.0),
+    "martial_ninja_squat": (60.0, -30.0, 60.0, 30.0, -60.0, 130.0, -130.0, -60.0, 0.0, -45.0, 0.0),
+    "martial_matrix_dodge": (-70.0, -90.0, 45.0, 90.0, -45.0, 80.0, -100.0, 80.0, -100.0, 20.0, 0.0),
+    "martial_double_punch": (10.0, -80.0, 0.0, -85.0, 0.0, 45.0, -45.0, 30.0, -30.0, 0.0, 0.0),
+    "martial_wrestle_prep": (45.0, -45.0, 90.0, -45.0, 90.0, 60.0, -70.0, 60.0, -70.0, -30.0, 0.0),
+    "martial_spear_thrust": (30.0, -90.0, 10.0, -90.0, 30.0, 60.0, -60.0, -30.0, 0.0, -10.0, 0.0),
+    "martial_levitation": (0.0, 45.0, 45.0, -45.0, -45.0, 90.0, -120.0, 90.0, -120.0, 0.0, 0.0),
+    "martial_victory_sword": (-5.0, -160.0, 0.0, 90.0, 0.0, 15.0, -10.0, -15.0, 0.0, 10.0, 0.0),
+    "martial_crouching_tiger": (70.0, -45.0, 60.0, -45.0, 60.0, 90.0, -90.0, 90.0, -90.0, -40.0, 0.0),
+    "martial_fencing_lunge": (15.0, -90.0, 0.0, 135.0, 90.0, 60.0, -90.0, -60.0, 0.0, -15.0, 0.0),
+    "martial_parkour_vault": (45.0, -60.0, 30.0, 135.0, 10.0, -45.0, 60.0, -30.0, 45.0, 15.0, -30.0),
+    "martial_hadouken": (30.0, -80.0, 20.0, -80.0, 20.0, 60.0, -60.0, 30.0, -30.0, -10.0, 0.0)
 }
 
 # Mapping of categories to lists of pose keys
@@ -454,6 +498,12 @@ POSE_CATEGORIES = {
         "daily_salute", "daily_shrug", "daily_point", "daily_camera", "daily_sleep",
         "daily_read", "daily_clap", "daily_look_far", "daily_defend", "daily_victory"
     ],
+    "martial": [
+        "martial_kungfu_bow", "martial_high_kick", "martial_flying_kick", "martial_judo_throw", "martial_defensive_guard",
+        "martial_samurai_draw", "martial_crane_stance", "martial_hero_landing", "martial_backflip", "martial_ninja_squat",
+        "martial_matrix_dodge", "martial_double_punch", "martial_wrestle_prep", "martial_spear_thrust", "martial_levitation",
+        "martial_victory_sword", "martial_crouching_tiger", "martial_fencing_lunge", "martial_parkour_vault", "martial_hadouken"
+    ],
     "double": [
         "double_shake", "double_hug", "double_fight", "double_walk", "double_highfive",
         "double_proposal", "double_tango", "double_carry", "double_backtoback", "double_whisper",
@@ -468,8 +518,65 @@ CATEGORY_DISPLAY_NAMES = {
     "dancing": {"zh_TW": "💃 舞蹈動作 (Dancing)", "en_US": "💃 Dance Poses"},
     "sports": {"zh_TW": "🏃 運動競技 (Sports)", "en_US": "🏃 Sports & Athletics"},
     "daily": {"zh_TW": "🧍 日常姿勢 (Daily)", "en_US": "🧍 Daily & Actions"},
+    "martial": {"zh_TW": "🥋 動作與格鬥 (Combat & Action)", "en_US": "🥋 Combat & Action"},
     "double": {"zh_TW": "👥 雙人互動 (Double)", "en_US": "👥 Double Poses"}
 }
+def fit_poses_to_canvas(pose_list: List[List[Tuple[float, float]]], canvas_w: float = 512.0, canvas_h: float = 512.0, margin: float = 25.0) -> List[List[Tuple[float, float]]]:
+    """
+    Fits one or more skeletons together into the canvas coordinate space with a safe margin on all sides.
+    Ensures that no joints/body parts extend beyond the [margin, canvas_w - margin] bounds.
+    If the combined bounding box goes out of bounds, scales down (preserving aspect ratio) and translates all points to fit perfectly in the center.
+    """
+    all_pts = []
+    for pts in pose_list:
+        for x, y in pts:
+            if x != 0.0 or y != 0.0:
+                all_pts.append((x, y))
+                
+    if not all_pts:
+        return pose_list
+        
+    xs = [p[0] for p in all_pts]
+    ys = [p[1] for p in all_pts]
+    min_x, max_x = min(xs), max(xs)
+    min_y, max_y = min(ys), max(ys)
+    
+    w = max_x - min_x
+    h = max_y - min_y
+    
+    # Safe boundary bounds
+    min_allowed_x = margin
+    max_allowed_x = canvas_w - margin
+    min_allowed_y = margin
+    max_allowed_y = canvas_h - margin
+    
+    allowed_w = max_allowed_x - min_allowed_x
+    allowed_h = max_allowed_y - min_allowed_y
+    
+    # Check if we exceed boundaries (or if we always want to fit)
+    exceeds = (min_x < min_allowed_x) or (max_x > max_allowed_x) or (min_y < min_allowed_y) or (max_y > max_allowed_y)
+    
+    if exceeds:
+        scale = min(1.0, allowed_w / w if w > 0 else 1.0, allowed_h / h if h > 0 else 1.0)
+        cx = (min_x + max_x) / 2.0
+        cy = (min_y + max_y) / 2.0
+        new_cx = canvas_w / 2.0
+        new_cy = canvas_h / 2.0
+        
+        res = []
+        for pts in pose_list:
+            new_pts = []
+            for x, y in pts:
+                if x == 0.0 and y == 0.0:
+                    new_pts.append((0.0, 0.0))
+                else:
+                    nx = (x - cx) * scale + new_cx
+                    ny = (y - cy) * scale + new_cy
+                    new_pts.append((nx, ny))
+            res.append(new_pts)
+        return res
+        
+    return pose_list
 
 
 def get_preset_pose(name: str, dx: float = 0.0, dy: float = 0.0) -> List[Tuple[float, float]]:
@@ -490,7 +597,8 @@ def get_preset_pose(name: str, dx: float = 0.0, dy: float = 0.0) -> List[Tuple[f
             l_hip=params[7], l_knee=params[8],
             head=params[9], global_rot=params[10]
         )
-        return [(x + dx, y + dy) for x, y in pts]
+        fitted_pts = fit_poses_to_canvas([pts])[0]
+        return [(x + dx, y + dy) for x, y in fitted_pts]
         
     # Legacy fallbacks
     if name == "single_stand":
@@ -508,9 +616,14 @@ def get_preset_pose(name: str, dx: float = 0.0, dy: float = 0.0) -> List[Tuple[f
 
 
 def get_double_preset_pose(name: str) -> Tuple[List[Tuple[float, float]], List[Tuple[float, float]]]:
+    p1, p2 = _get_double_preset_pose_raw(name)
+    p1_f, p2_f = fit_poses_to_canvas([p1, p2])
+    return p1_f, p2_f
+
+
+def _get_double_preset_pose_raw(name: str) -> Tuple[List[Tuple[float, float]], List[Tuple[float, float]]]:
     """
-    Returns a tuple of two skeletons for a double person preset.
-    Skeletons are procedurally generated or loaded to fit beautifully on the canvas.
+    Returns a tuple of two skeletons for a double person preset (internal raw logic).
     """
     # 1. Double Handshake
     if name == "double_shake":

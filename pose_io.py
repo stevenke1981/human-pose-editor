@@ -17,7 +17,7 @@ def draw_skeleton_on_painter(
     scale_factor: float,
     labels_mode: str = "none",
     lang: str = "zh_TW",
-    skeleton_style: str = "classic"
+    skeleton_style: str = "mannequin"
 ):
     """
     Draws a single skeleton (points + connections or 3D mannequin) on a QPainter.
@@ -119,7 +119,7 @@ def export_to_image(
     show_pose_name: bool = True,
     bg_image_path: str = "",
     bg_opacity: float = 1.0,
-    skeleton_style: str = "classic"
+    skeleton_style: str = "mannequin"
 ) -> bool:
     """
     Renders skeletons headlessly onto a QImage and exports to file_path.

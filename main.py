@@ -728,8 +728,8 @@ class MainWindow(QMainWindow):
         curr_style_idx = max(0, self.combo_style.currentIndex())
         self.combo_style.blockSignals(True)
         self.combo_style.clear()
-        self.combo_style.addItem(i18n.get_translation("style_classic", self.lang), "classic")
         self.combo_style.addItem(i18n.get_translation("style_mannequin", self.lang), "mannequin")
+        self.combo_style.addItem(i18n.get_translation("style_classic", self.lang), "classic")
         self.combo_style.setCurrentIndex(curr_style_idx)
         self.combo_style.blockSignals(False)
         
@@ -1124,7 +1124,7 @@ class MainWindow(QMainWindow):
             export_bg_path = self.canvas.bg_image_path
             export_bg_opacity = self.canvas.bg_opacity
 
-        style = self.combo_style.currentData() or "classic"
+        style = self.combo_style.currentData() or "mannequin"
         success = pose_io.export_to_image(
             canvas_size=(self.canvas_width, self.canvas_height),
             skeletons=self.skeletons,

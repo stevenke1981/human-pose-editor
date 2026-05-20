@@ -40,7 +40,7 @@ class PoseCanvas(QWidget):
 
         # Labels & Reference Coordinates
         self.labels_mode = "none"  # "none", "indices", "names"
-        self.skeleton_style = "classic"  # "classic", "mannequin"
+        self.skeleton_style = "mannequin"  # "classic", "mannequin"
         self.lang = "zh_TW"
         self.show_scale_axes = True
         self.show_pose_name = True
