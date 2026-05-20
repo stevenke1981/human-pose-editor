@@ -72,6 +72,8 @@ TRANSLATIONS = {
         "labels_indices": "數字編號 (0-17)",
         "labels_names": "部位名稱 (Nose...)",
         "show_scale_axes": "顯示比例尺與空間方向",
+        "show_pose_name": "顯示姿勢名稱",
+        "pose_custom": "自訂姿勢",
         "export_success_sidecar_msg": "圖片與 Gemini 旁路提示詞已成功儲存至:\n{}\n及\n{}",
         # Joint names (zh_TW)
         "joint_0": "鼻",
@@ -161,6 +163,8 @@ TRANSLATIONS = {
         "labels_indices": "Index Numbers (0-17)",
         "labels_names": "Joint Names (Nose...)",
         "show_scale_axes": "Show Scale & XYZ Axes",
+        "show_pose_name": "Show Pose Name",
+        "pose_custom": "Custom Pose",
         "export_success_sidecar_msg": "Image and Gemini sidecar prompt saved successfully to:\n{}\nand\n{}",
         # Joint names (en_US)
         "joint_0": "Nose",
@@ -193,3 +197,36 @@ def get_translation(key: str, lang: str = "zh_TW") -> str:
     """
     lang_dict = TRANSLATIONS.get(lang, TRANSLATIONS["zh_TW"])
     return lang_dict.get(key, f"[{key}]")
+
+
+def get_pose_display_name(pose_name: str, lang: str = "zh_TW") -> str:
+    """
+    Returns the translated, human-friendly display name of a given pose key.
+    Handles legacy presets, custom poses, and modified indicators automatically.
+    """
+    if not pose_name or pose_name == "custom":
+        return get_translation("pose_custom", lang)
+    
+    # Check if it is a modified pose
+    is_modified = False
+    base_name = pose_name
+    if pose_name.endswith("_modified"):
+        is_modified = True
+        base_name = pose_name[:-9]
+    
+    # Try finding in basic presets
+    preset_key = f"preset_{base_name}"
+    translated = get_translation(preset_key, lang)
+    if not translated.startswith("[preset_"):
+        disp = translated
+    else:
+        # Try pose_presets.POSE_DISPLAY_NAMES
+        import pose_presets
+        names = pose_presets.POSE_DISPLAY_NAMES.get(base_name, {})
+        disp = names.get(lang, base_name)
+        
+    if is_modified:
+        suffix = " (已修改)" if lang == "zh_TW" else " (Modified)"
+        return f"{disp}{suffix}"
+    return disp
+

@@ -257,7 +257,8 @@ class MainWindow(QMainWindow):
                 "visible": True,
                 "locked": False,
                 "height_scale": 1.0,
-                "limb_scale": 1.0
+                "limb_scale": 1.0,
+                "pose_name": "single_stand"
             }
         ]
 
@@ -550,6 +551,11 @@ class MainWindow(QMainWindow):
         self.chk_scale_axes.setChecked(True)
         self.chk_scale_axes.toggled.connect(self.change_scale_axes_visibility)
         
+        # Pose Name checkbox
+        self.chk_pose_name = QCheckBox(i18n.get_translation("show_pose_name", self.lang), self)
+        self.chk_pose_name.setChecked(True)
+        self.chk_pose_name.toggled.connect(self.change_pose_name_visibility)
+        
         grp_settings_layout.addWidget(self.lbl_bg_color)
         grp_settings_layout.addWidget(self.combo_bg_color)
         grp_settings_layout.addWidget(self.lbl_resolution)
@@ -559,6 +565,7 @@ class MainWindow(QMainWindow):
         grp_settings_layout.addWidget(self.lbl_labels)
         grp_settings_layout.addWidget(self.combo_labels)
         grp_settings_layout.addWidget(self.chk_scale_axes)
+        grp_settings_layout.addWidget(self.chk_pose_name)
         
         # Ref Background Trace image load
         self.lbl_bg_trace = QLabel(i18n.get_translation("bg_image", self.lang), self)
@@ -707,6 +714,9 @@ class MainWindow(QMainWindow):
         # Scale & XYZ axes checkbox
         self.chk_scale_axes.setText(i18n.get_translation("show_scale_axes", self.lang))
         
+        # Pose Name checkbox
+        self.chk_pose_name.setText(i18n.get_translation("show_pose_name", self.lang))
+        
         # Load background reference block
         self.lbl_bg_trace.setText(i18n.get_translation("bg_image", self.lang))
         self.btn_load_bg.setText(i18n.get_translation("load_bg", self.lang))
@@ -743,7 +753,8 @@ class MainWindow(QMainWindow):
             "visible": True,
             "locked": False,
             "height_scale": 1.0,
-            "limb_scale": 1.0
+            "limb_scale": 1.0,
+            "pose_name": "single_stand"
         })
         
         self.canvas.set_skeletons(self.skeletons)
@@ -878,6 +889,13 @@ class MainWindow(QMainWindow):
         # Copy modified points to original points establishing a new baseline pose
         sk["original_points"] = list(sk["points"])
         
+        # Mark as modified pose
+        if not sk.get("pose_name", "").endswith("_modified"):
+            if sk.get("pose_name", "") and sk.get("pose_name", "") != "custom":
+                sk["pose_name"] = sk["pose_name"] + "_modified"
+            else:
+                sk["pose_name"] = "custom"
+        
         # Reset sliders block signals
         sk["height_scale"] = 1.0
         sk["limb_scale"] = 1.0
@@ -941,6 +959,7 @@ class MainWindow(QMainWindow):
         preset_pts = pose_presets.get_preset_pose(name, dx, dy)
         sk["points"] = preset_pts
         sk["original_points"] = list(preset_pts)
+        sk["pose_name"] = name
         
         # Reset sliders
         sk["height_scale"] = 1.0
@@ -964,11 +983,13 @@ class MainWindow(QMainWindow):
         self.skeletons[0]["original_points"] = list(p1_pts)
         self.skeletons[0]["height_scale"] = 1.0
         self.skeletons[0]["limb_scale"] = 1.0
+        self.skeletons[0]["pose_name"] = name
         
         self.skeletons[1]["points"] = p2_pts
         self.skeletons[1]["original_points"] = list(p2_pts)
         self.skeletons[1]["height_scale"] = 1.0
         self.skeletons[1]["limb_scale"] = 1.0
+        self.skeletons[1]["pose_name"] = name
         
         # Reset sliders on screen
         self.slider_height.setValue(100)
@@ -1011,6 +1032,10 @@ class MainWindow(QMainWindow):
     def change_scale_axes_visibility(self):
         """Toggles drawing of scale bar and XYZ axes overlay on the canvas."""
         self.canvas.set_show_scale_axes(self.chk_scale_axes.isChecked())
+
+    def change_pose_name_visibility(self):
+        """Toggles drawing of floating pose name label on the canvas."""
+        self.canvas.set_show_pose_name(self.chk_pose_name.isChecked())
 
     def load_reference_bg(self):
         """Prompts user to select a tracing reference photo loaded underneath skeletons."""
@@ -1067,7 +1092,8 @@ class MainWindow(QMainWindow):
             file_path=file_path,
             labels_mode=labels_mode,
             lang=self.lang,
-            show_scale_axes=self.chk_scale_axes.isChecked()
+            show_scale_axes=self.chk_scale_axes.isChecked(),
+            show_pose_name=self.chk_pose_name.isChecked()
         )
         
         if success:

@@ -103,7 +103,8 @@ def export_to_image(
     file_path: str,
     labels_mode: str = "none",
     lang: str = "zh_TW",
-    show_scale_axes: bool = True
+    show_scale_axes: bool = True,
+    show_pose_name: bool = True
 ) -> bool:
     """
     Renders skeletons headlessly onto a QImage and exports to file_path.
@@ -323,9 +324,50 @@ def export_to_image(
         painter.restore()
         
     # 2. Draw Skeletons
-    for sk in skeletons:
+    for idx, sk in enumerate(skeletons):
         if sk.get("visible", True):
             draw_skeleton_on_painter(painter, sk["points"], scale_factor, labels_mode, lang)
+            
+            # Draw Floating Pose Name Label above the head
+            if show_pose_name:
+                painter.save()
+                font = QFont("Segoe UI", int(max(10, 11 * scale_factor)))
+                font.setBold(True)
+                painter.setFont(font)
+                
+                pose_name = sk.get("pose_name", "")
+                pose_disp = i18n.get_pose_display_name(pose_name, lang)
+                char_lbl = i18n.get_translation("char_label", lang).format(idx + 1)
+                label_text = f" {char_lbl} | {pose_disp} "
+                
+                fm = painter.fontMetrics()
+                tw = fm.horizontalAdvance(label_text)
+                th = fm.height()
+                
+                points = sk["points"]
+                visible_pts = [pt for pt in points if (pt[0] != 0 or pt[1] != 0)]
+                if visible_pts:
+                    min_y = min(pt[1] for pt in visible_pts)
+                    head_pt = points[0] if (points[0][0] != 0 or points[0][1] != 0) else (points[1] if (points[1][0] != 0 or points[1][1] != 0) else visible_pts[0])
+                    
+                    highest_sy = min_y
+                    tx = head_pt[0] - tw / 2.0
+                    ty = highest_sy - 15 * scale_factor
+                    
+                    label_rect = QRectF(tx - 4 * scale_factor, ty - th + 2 * scale_factor, tw + 8 * scale_factor, th + 2 * scale_factor)
+                    
+                    painter.setPen(Qt.PenStyle.NoPen)
+                    painter.setBrush(QBrush(QColor(18, 19, 22, 220)))
+                    painter.drawRoundedRect(label_rect, 4.0 * scale_factor, 4.0 * scale_factor)
+                    
+                    border_pen = QPen(QColor(100, 100, 110, 150), max(1.0, 1.5 * scale_factor))
+                    painter.setPen(border_pen)
+                    painter.setBrush(Qt.BrushStyle.NoBrush)
+                    painter.drawRoundedRect(label_rect, 4.0 * scale_factor, 4.0 * scale_factor)
+                    
+                    painter.setPen(QColor(255, 255, 255))
+                    painter.drawText(QPointF(tx, ty), label_text)
+                    painter.restore()
             
     painter.end()
     

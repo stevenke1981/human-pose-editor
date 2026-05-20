@@ -42,6 +42,7 @@ class PoseCanvas(QWidget):
         self.labels_mode = "none"  # "none", "indices", "names"
         self.lang = "zh_TW"
         self.show_scale_axes = True
+        self.show_pose_name = True
 
         # Dragging State
         self.dragged_sk_idx = -1
@@ -77,6 +78,10 @@ class PoseCanvas(QWidget):
 
     def set_show_scale_axes(self, show: bool):
         self.show_scale_axes = show
+        self.update()
+
+    def set_show_pose_name(self, show: bool):
+        self.show_pose_name = show
         self.update()
 
     def set_language(self, lang: str):
@@ -175,7 +180,14 @@ class PoseCanvas(QWidget):
                 continue
                 
             is_selected = (idx == self.selected_char_idx)
-            self.draw_skeleton(painter, sk["points"], is_selected, sk.get("locked", False))
+            self.draw_skeleton(
+                painter,
+                sk["points"],
+                is_selected,
+                sk.get("locked", False),
+                char_idx=idx,
+                pose_name=sk.get("pose_name", "")
+            )
 
         painter.end()
 
@@ -428,9 +440,51 @@ class PoseCanvas(QWidget):
         painter: QPainter,
         points: List[Tuple[float, float]],
         is_selected: bool,
-        is_locked: bool
+        is_locked: bool,
+        char_idx: int = 0,
+        pose_name: str = ""
     ):
         """Renders a single skeleton's joints and connections onto screen coordinates."""
+        # Draw Floating Pose Name Label above the head
+        if self.show_pose_name:
+            painter.save()
+            font = QFont("Segoe UI", int(max(10, 11 * self.scale_factor)))
+            font.setBold(True)
+            painter.setFont(font)
+            
+            pose_disp = i18n.get_pose_display_name(pose_name, self.lang)
+            char_lbl = i18n.get_translation("char_label", self.lang).format(char_idx + 1)
+            label_text = f" {char_lbl} | {pose_disp} "
+            
+            fm = painter.fontMetrics()
+            tw = fm.horizontalAdvance(label_text)
+            th = fm.height()
+            
+            visible_pts = [pt for pt in points if (pt[0] != 0 or pt[1] != 0)]
+            if visible_pts:
+                min_y = min(pt[1] for pt in visible_pts)
+                head_pt = points[0] if (points[0][0] != 0 or points[0][1] != 0) else (points[1] if (points[1][0] != 0 or points[1][1] != 0) else visible_pts[0])
+                head_sx, head_sy = self.to_screen_coords(head_pt[0], head_pt[1])
+                
+                highest_sy = self.to_screen_coords(0.0, min_y)[1]
+                tx = head_sx - tw / 2.0
+                ty = highest_sy - 15 * self.scale_factor
+                
+                label_rect = QRectF(tx - 4, ty - th + 2, tw + 8, th + 2)
+                
+                painter.setPen(Qt.PenStyle.NoPen)
+                painter.setBrush(QBrush(QColor(18, 19, 22, 220)))
+                painter.drawRoundedRect(label_rect, 4.0 * self.scale_factor, 4.0 * self.scale_factor)
+                
+                glow_color = QColor(0, 229, 255) if is_selected else QColor(100, 100, 110, 150)
+                border_pen = QPen(glow_color, max(1.0, 1.5 * self.scale_factor))
+                painter.setPen(border_pen)
+                painter.setBrush(Qt.BrushStyle.NoBrush)
+                painter.drawRoundedRect(label_rect, 4.0 * self.scale_factor, 4.0 * self.scale_factor)
+                
+                painter.setPen(QColor(255, 255, 255))
+                painter.drawText(QPointF(tx, ty), label_text)
+                painter.restore()
         # Calculate dynamic size based on current zoom
         joint_radius = max(3.5, 4.5 * self.scale_factor)
         bone_width = max(2.5, 4.0 * self.scale_factor)
