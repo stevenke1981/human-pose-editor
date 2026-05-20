@@ -71,6 +71,7 @@ TRANSLATIONS = {
         "labels_none": "無標記",
         "labels_indices": "數字編號 (0-17)",
         "labels_names": "部位名稱 (Nose...)",
+        "show_scale_axes": "顯示比例尺與空間方向",
         "export_success_sidecar_msg": "圖片與 Gemini 旁路提示詞已成功儲存至:\n{}\n及\n{}",
         # Joint names (zh_TW)
         "joint_0": "鼻",
@@ -159,6 +160,7 @@ TRANSLATIONS = {
         "labels_none": "No Labels",
         "labels_indices": "Index Numbers (0-17)",
         "labels_names": "Joint Names (Nose...)",
+        "show_scale_axes": "Show Scale & XYZ Axes",
         "export_success_sidecar_msg": "Image and Gemini sidecar prompt saved successfully to:\n{}\nand\n{}",
         # Joint names (en_US)
         "joint_0": "Nose",

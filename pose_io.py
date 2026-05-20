@@ -102,7 +102,8 @@ def export_to_image(
     background_mode: str,
     file_path: str,
     labels_mode: str = "none",
-    lang: str = "zh_TW"
+    lang: str = "zh_TW",
+    show_scale_axes: bool = True
 ) -> bool:
     """
     Renders skeletons headlessly onto a QImage and exports to file_path.
@@ -210,7 +211,11 @@ def export_to_image(
         draw_label(float(width), float(height), f"({width}, {height})", "right_bottom")
         draw_label(cx, cy, f"({width // 2}, {height // 2})", "left_top")
         
-        # --- 2. Scale Bar & XYZ Coordinate Tripod ---
+        painter.restore()
+        
+    # 1.5 Draw Scale Bar & XYZ Coordinate Tripod if enabled
+    if show_scale_axes:
+        painter.save()
         scale = scale_factor
         text_bg = QColor(0, 0, 0, 180) if background_mode != "white" else QColor(255, 255, 255, 210)
         axis_text_color = QColor(255, 255, 255) if background_mode != "white" else QColor(0, 0, 0)

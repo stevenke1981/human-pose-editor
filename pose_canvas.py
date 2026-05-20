@@ -41,6 +41,7 @@ class PoseCanvas(QWidget):
         # Labels & Reference Coordinates
         self.labels_mode = "none"  # "none", "indices", "names"
         self.lang = "zh_TW"
+        self.show_scale_axes = True
 
         # Dragging State
         self.dragged_sk_idx = -1
@@ -72,6 +73,10 @@ class PoseCanvas(QWidget):
 
     def set_labels_mode(self, mode: str):
         self.labels_mode = mode
+        self.update()
+
+    def set_show_scale_axes(self, show: bool):
+        self.show_scale_axes = show
         self.update()
 
     def set_language(self, lang: str):
@@ -296,7 +301,7 @@ class PoseCanvas(QWidget):
 
     def draw_scale_and_axes(self, painter: QPainter, rect: QRectF):
         """Draws a map-like scale bar and orthogonal XYZ directions indicator in the bottom-left corner."""
-        if self.labels_mode == "none":
+        if not self.show_scale_axes:
             return
             
         painter.save()

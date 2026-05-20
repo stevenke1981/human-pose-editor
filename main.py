@@ -9,7 +9,7 @@ from typing import List, Dict, Tuple
 from PySide6.QtWidgets import (
     QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, 
     QGroupBox, QPushButton, QSlider, QComboBox, QLabel, QFileDialog, 
-    QMessageBox, QFrame, QSplitter, QScrollArea
+    QMessageBox, QFrame, QSplitter, QScrollArea, QCheckBox
 )
 from PySide6.QtGui import QIcon, QColor, QFont
 from PySide6.QtCore import Qt, QSize
@@ -193,6 +193,31 @@ QScrollBar::handle:vertical:hover {
 QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {
     border: none;
     background: none;
+}
+
+QCheckBox {
+    color: #e0e0e6;
+    spacing: 6px;
+    padding-top: 4px;
+    padding-bottom: 4px;
+}
+QCheckBox::indicator {
+    width: 16px;
+    height: 16px;
+    border: 1px solid #3e424d;
+    border-radius: 3px;
+    background-color: #202227;
+}
+QCheckBox::indicator:unchecked:hover {
+    border: 1px solid #00e5ff;
+}
+QCheckBox::indicator:checked {
+    background-color: #00e5ff;
+    border: 1px solid #00e5ff;
+}
+QCheckBox::indicator:checked:hover {
+    background-color: #33ebff;
+    border: 1px solid #33ebff;
 }
 """
 
@@ -520,6 +545,11 @@ class MainWindow(QMainWindow):
         self.combo_labels = QComboBox(self)
         self.combo_labels.currentIndexChanged.connect(self.change_labels_mode)
         
+        # Scale & XYZ axes checkbox
+        self.chk_scale_axes = QCheckBox(i18n.get_translation("show_scale_axes", self.lang), self)
+        self.chk_scale_axes.setChecked(True)
+        self.chk_scale_axes.toggled.connect(self.change_scale_axes_visibility)
+        
         grp_settings_layout.addWidget(self.lbl_bg_color)
         grp_settings_layout.addWidget(self.combo_bg_color)
         grp_settings_layout.addWidget(self.lbl_resolution)
@@ -528,6 +558,7 @@ class MainWindow(QMainWindow):
         grp_settings_layout.addWidget(self.combo_guide)
         grp_settings_layout.addWidget(self.lbl_labels)
         grp_settings_layout.addWidget(self.combo_labels)
+        grp_settings_layout.addWidget(self.chk_scale_axes)
         
         # Ref Background Trace image load
         self.lbl_bg_trace = QLabel(i18n.get_translation("bg_image", self.lang), self)
@@ -672,6 +703,9 @@ class MainWindow(QMainWindow):
         self.combo_labels.addItem(i18n.get_translation("labels_names", self.lang), "names")
         self.combo_labels.setCurrentIndex(curr_labels_idx)
         self.combo_labels.blockSignals(False)
+        
+        # Scale & XYZ axes checkbox
+        self.chk_scale_axes.setText(i18n.get_translation("show_scale_axes", self.lang))
         
         # Load background reference block
         self.lbl_bg_trace.setText(i18n.get_translation("bg_image", self.lang))
@@ -974,6 +1008,10 @@ class MainWindow(QMainWindow):
         if labels_mode:
             self.canvas.set_labels_mode(labels_mode)
 
+    def change_scale_axes_visibility(self):
+        """Toggles drawing of scale bar and XYZ axes overlay on the canvas."""
+        self.canvas.set_show_scale_axes(self.chk_scale_axes.isChecked())
+
     def load_reference_bg(self):
         """Prompts user to select a tracing reference photo loaded underneath skeletons."""
         file_path, _ = QFileDialog.getOpenFileName(
@@ -1028,7 +1066,8 @@ class MainWindow(QMainWindow):
             background_mode=bg_mode,
             file_path=file_path,
             labels_mode=labels_mode,
-            lang=self.lang
+            lang=self.lang,
+            show_scale_axes=self.chk_scale_axes.isChecked()
         )
         
         if success:
