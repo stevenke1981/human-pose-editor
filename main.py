@@ -240,6 +240,7 @@ class MainWindow(QMainWindow):
         # Setup UI
         self.init_ui()
         self.retranslate_ui()
+        self.change_skeleton_style()
         
         # Load Stylesheet
         self.setStyleSheet(DARK_QSS)
