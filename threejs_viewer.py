@@ -63,6 +63,12 @@ class ThreeJSBridge(QObject):
         """Called by JS when the user clicks 'Generate Prop' in the 3D toolbar."""
         self.prop_generation_requested.emit()
 
+    @Slot()
+    def on_sculpt_pipeline_requested(self):
+        """Called by JS when the user clicks 'Sculpt Pipeline' in the 3D toolbar."""
+        if self._viewer:
+            self._viewer.run_sculpt_pipeline()
+
 
 # ======================================================================
 #  ThreeJSViewer Widget
@@ -237,3 +243,104 @@ class ThreeJSViewer(QWebEngineView):
     def clear_props(self):
         """Remove all generated props from the scene."""
         self._call_js("window.__threejs_bridge.clearProps();")
+
+    # ------------------------------------------------------------------
+    #  Sculpt Pipeline (full integration)
+    # ------------------------------------------------------------------
+
+    def run_sculpt_pipeline(self, image_path: Optional[str] = None):
+        """Run the full Three.js Object Sculptor pipeline from image to scene.
+
+        Args:
+            image_path: Optional path; if None, opens a file dialog.
+        """
+        if image_path is None:
+            from PySide6.QtWidgets import QFileDialog
+            path, _ = QFileDialog.getOpenFileName(
+                self._parent_window or self,
+                "Select Reference Image for Sculpt Pipeline",
+                "",
+                "Images (*.png *.jpg *.jpeg *.bmp *.webp);;All Files (*)"
+            )
+            if not path:
+                return
+            image_path = path
+
+        from PySide6.QtWidgets import QInputDialog, QMessageBox
+        name, ok = QInputDialog.getText(
+            self._parent_window or self,
+            "Sculpt Pipeline — Object Name",
+            "Name of the object to generate:",
+            text=os.path.splitext(os.path.basename(image_path))[0]
+        )
+        if not ok or not name.strip():
+            name = "SculptedObject"
+
+        # Complexity selection
+        complexities = ["moderate", "simple", "complex", "ultra"]
+        complexity, ok = QInputDialog.getItem(
+            self._parent_window or self,
+            "Sculpt Pipeline — Complexity",
+            "Complexity tier:",
+            complexities, 0, False
+        )
+        if not ok:
+            complexity = "moderate"
+
+        self.set_status(f"🔧 Sculpt pipeline: probing image...")
+
+        # Import and run pipeline
+        from sculpt_pipeline import run_pipeline
+
+        # Run in a way that doesn't block UI — but since QWebEngineView
+        # is async anyway, we just run synchronously with status updates
+        try:
+            result = run_pipeline(
+                image_path=image_path,
+                target_name=name,
+                complexity=complexity,
+            )
+
+            if not result.success:
+                self.set_status(f"❌ Pipeline failed: {result.error}")
+                QMessageBox.critical(
+                    self._parent_window or self,
+                    "Sculpt Pipeline Error",
+                    f"Pipeline failed:\n{result.error}"
+                )
+                return
+
+            if result.js_code:
+                self.set_status(f"✅ Pipeline complete! Loading {name} into scene...")
+                escaped = json.dumps(result.js_code)
+                self._call_js(f"window.__threejs_bridge.addPropFromCode({escaped});")
+                self.set_status(f"✅ {name} loaded from sculpt pipeline")
+
+                # Show summary
+                probe = result.probe_result or {}
+                val = result.validation or {}
+                summary = (
+                    f"✅ Sculpt Pipeline Complete\n\n"
+                    f"Object: {name}\n"
+                    f"Image: {os.path.basename(image_path)}\n"
+                    f"Probe: {probe.get('width', '?')}x{probe.get('height', '?')}\n"
+                    f"Validation: {len(val.get('errors', []))} errors, "
+                    f"{len(val.get('warnings', []))} warnings\n"
+                    f"Spec: {os.path.basename(result.spec_path or '')}\n"
+                    f"Generated: {os.path.basename(result.ts_path or '')}"
+                )
+                QMessageBox.information(
+                    self._parent_window or self,
+                    "Sculpt Pipeline Complete",
+                    summary
+                )
+            else:
+                self.set_status("⚠️ Pipeline completed but no JS code generated")
+
+        except Exception as e:
+            self.set_status(f"❌ Pipeline error: {e}")
+            QMessageBox.critical(
+                self._parent_window or self,
+                "Sculpt Pipeline Error",
+                f"Unexpected error:\n{e}"
+            )
