@@ -9,7 +9,7 @@ from typing import List, Dict, Tuple
 from PySide6.QtWidgets import (
     QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, 
     QGroupBox, QPushButton, QSlider, QComboBox, QLabel, QFileDialog, 
-    QMessageBox, QFrame, QSplitter, QScrollArea, QCheckBox
+    QMessageBox, QFrame, QSplitter, QScrollArea, QCheckBox, QTabWidget
 )
 from PySide6.QtGui import QIcon, QColor, QFont
 from PySide6.QtCore import Qt, QSize
@@ -19,6 +19,7 @@ import pose_math
 import pose_presets
 import pose_io
 from pose_canvas import PoseCanvas
+from threejs_viewer import ThreeJSViewer
 
 # QSS Custom Modern Dark/Neon Style Sheet
 DARK_QSS = """
@@ -471,19 +472,38 @@ class MainWindow(QMainWindow):
         scroll_left.setWidget(sidebar_left)
         work_layout.addWidget(scroll_left)
 
-        # --- CENTER AREA (Interactive Canvas) ---
+        # --- CENTER AREA: Tab Widget (2D Canvas / 3D View) ---
+        self.center_tabs = QTabWidget(self)
+        self.center_tabs.setStyleSheet("""
+            QTabWidget::pane { border: 1px solid #282a30; border-radius: 6px; background: #1a1c22; }
+            QTabBar::tab { background: #2a2d35; color: #888; padding: 6px 18px; border: 1px solid #282a30;
+                           border-bottom: none; border-radius: 6px 6px 0 0; margin-right: 2px; min-width: 100px; }
+            QTabBar::tab:selected { background: #1a1c22; color: #00e5ff; font-weight: bold; }
+            QTabBar::tab:hover { background: #353943; color: #ccc; }
+        """)
+
+        # --- Tab 1: 2D Pose Canvas ---
         self.canvas = PoseCanvas(self)
         self.canvas.set_skeletons(self.skeletons)
         self.canvas.char_selected.connect(self.select_character)
         self.canvas.pose_changed.connect(self.on_canvas_pose_changed)
-        
-        # Framed wrapper to give the canvas a sleek container look
+
         canvas_container = QFrame(self)
-        canvas_container.setStyleSheet("background-color: #1a1c22; border-radius: 8px; border: 1px solid #282a30;")
+        canvas_container.setStyleSheet("background-color: #1a1c22; border-radius: 6px; border: none;")
         cc_layout = QVBoxLayout(canvas_container)
         cc_layout.setContentsMargins(4, 4, 4, 4)
         cc_layout.addWidget(self.canvas)
-        work_layout.addWidget(canvas_container, stretch=1)
+
+        self.center_tabs.addTab(canvas_container, "✏️ 2D 畫布")
+
+        # --- Tab 2: 3D View ---
+        self.threejs_viewer = ThreeJSViewer(self)
+        self.center_tabs.addTab(self.threejs_viewer, "🧊 3D 檢視")
+
+        # Connect tab change to update 3D view when switching
+        self.center_tabs.currentChanged.connect(self._on_center_tab_changed)
+
+        work_layout.addWidget(self.center_tabs, stretch=1)
 
         # --- RIGHT SIDEBAR (Presets & Canvas Settings Panel) ---
         scroll_right = QScrollArea(self)
@@ -904,6 +924,19 @@ class MainWindow(QMainWindow):
             sk["limb_scale"]
         )
         self.canvas.update()
+
+    def _on_center_tab_changed(self, index: int):
+        """Handle tab switches between 2D Canvas and 3D View."""
+        if index == 1 and hasattr(self, 'threejs_viewer'):
+            # Switching to 3D view: sync current pose data
+            if self.skeletons and self.canvas.selected_char_idx >= 0:
+                active = self.skeletons[self.canvas.selected_char_idx]
+                if "points" in active:
+                    self.threejs_viewer.set_pose({
+                        "points": active["points"],
+                        "connections": active.get("connections", [])
+                    })
+            self.threejs_viewer.set_status("3D View ready — Drag to orbit")
 
     def on_canvas_pose_changed(self):
         """Called when user manually drags a joint in the canvas. Resets sliders baseline."""
