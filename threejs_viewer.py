@@ -3,9 +3,15 @@ threejs_viewer.py — QWebEngineView wrapper for embedded Three.js 3D viewer.
 
 Provides a PySide6 widget with an embedded Three.js scene, QWebChannel bridge,
 and a Python API for loading models, setting poses, generating props, and more.
+
+NOTE: The viewer is served via a local HTTP server (not file://) so that
+Three.js ES modules (importmap) work correctly in Qt WebEngine / Chromium.
 """
 import os
 import json
+import threading
+import http.server
+import socket
 from typing import Optional, Callable
 
 from PySide6.QtCore import QObject, Slot, Signal, QUrl, Qt
@@ -13,6 +19,51 @@ from PySide6.QtWebEngineWidgets import QWebEngineView
 from PySide6.QtWebChannel import QWebChannel
 
 from prop_generator import generate_prop_code, generate_json_spec
+
+
+# ======================================================================
+#  Local HTTP Server (singleton) — serves threejs/viewer.html with
+#  correct MIME types so ES modules + importmap work in QWebEngineView.
+# ======================================================================
+
+_local_server = None
+_local_server_port = None
+_local_server_thread = None
+
+
+class _QuietHandler(http.server.SimpleHTTPRequestHandler):
+    """HTTP handler that suppresses console log output."""
+    def log_message(self, fmt, *args):
+        pass
+
+
+def _start_local_server():
+    """Start a daemon-threaded HTTP server at a random port, serving the
+    project root directory so that ``threejs/viewer.html`` is reachable.
+    Safe to call multiple times — only starts once."""
+    global _local_server, _local_server_port, _local_server_thread
+    if _local_server is not None:
+        return
+
+    # Find a free TCP port
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+        s.bind(('127.0.0.1', 0))
+        _local_server_port = s.getsockname()[1]
+
+    # Serve from the project root directory (where threejs/ lives)
+    project_root = os.path.dirname(os.path.abspath(__file__))
+
+    server = http.server.HTTPServer(
+        ('127.0.0.1', _local_server_port),
+        lambda *a, **kw: _QuietHandler(*a, directory=project_root, **kw),
+    )
+    server.timeout = 0.5  # allow clean shutdown
+
+    _local_server = server
+
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    _local_server_thread = thread
 
 
 # ======================================================================
@@ -89,16 +140,23 @@ class ThreeJSViewer(QWebEngineView):
         # Store external callback for prop generation
         self._on_generate_prop_callback = on_generate_prop
 
-        # Locate the HTML template
+        # Ensure the local HTTP server is running (for ES module support)
+        _start_local_server()
+
+        # Locate the HTML template — use relative path for HTTP server
         if html_path is None:
-            base = os.path.dirname(os.path.abspath(__file__))
-            html_path = os.path.join(base, "threejs", "viewer.html")
+            html_path = "threejs/viewer.html"
+        # Strip absolute prefix if caller passed a full path
+        project_root = os.path.dirname(os.path.abspath(__file__))
+        if html_path.startswith(project_root):
+            html_path = os.path.relpath(html_path, project_root)
 
         self._html_path = html_path
         self._ready = False
 
-        # Load the page
-        self.load(QUrl.fromLocalFile(self._html_path))
+        # Load via HTTP (not file://) so ES modules + importmap work
+        viewer_url = f"http://127.0.0.1:{_local_server_port}/{html_path.replace(os.sep, '/')}"
+        self.load(QUrl(viewer_url))
         self.loadFinished.connect(self._on_load_finished)
 
         # Connect bridge signals
@@ -116,7 +174,9 @@ class ThreeJSViewer(QWebEngineView):
     # ------------------------------------------------------------------
 
     def _on_load_finished(self, ok: bool):
-        if not ok:
+        if ok:
+            print(f"[ThreeJSViewer] Loaded: {self.url().toString()}")
+        else:
             print(f"[ThreeJSViewer] Failed to load: {self._html_path}")
 
     def _on_scene_ready(self):
