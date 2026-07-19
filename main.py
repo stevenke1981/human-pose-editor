@@ -498,7 +498,10 @@ class MainWindow(QMainWindow):
         self.center_tabs.addTab(canvas_container, "✏️ 2D 畫布")
 
         # --- Tab 2: 3D View ---
-        self.threejs_viewer = ThreeJSViewer(self)
+        self.threejs_viewer = ThreeJSViewer(
+            self,
+            on_generate_prop=lambda: self.threejs_viewer.generate_prop_from_file()
+        )
         self.center_tabs.addTab(self.threejs_viewer, "🧊 3D 檢視")
 
         # Connect tab change to update 3D view when switching

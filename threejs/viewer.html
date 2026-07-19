@@ -17,10 +17,25 @@
     color: #888; font-size: 11px; background: rgba(0,0,0,0.4);
     padding: 3px 12px; border-radius: 8px; pointer-events: none;
   }
+  #toolbar {
+    position: absolute; top: 44px; right: 12px; display: flex; gap: 6px;
+    align-items: center; z-index: 10;
+  }
+  #toolbar button {
+    background: rgba(42,45,53,0.85); color: #ccc; border: 1px solid #3e424d;
+    border-radius: 5px; padding: 5px 12px; font-size: 12px; cursor: pointer;
+    font-family: inherit; backdrop-filter: blur(4px);
+  }
+  #toolbar button:hover { background: rgba(53,57,67,0.9); border-color: #00e5ff; color: #fff; }
 </style>
 </head>
 <body>
 <div id="info">🔄 Drag to orbit · Scroll to zoom · Right-drag to pan</div>
+<div id="toolbar">
+  <button id="btn_gen_prop" title="Generate 3D prop from image">🎲 Generate Prop</button>
+  <button id="btn_clear_props" title="Remove all props">🗑️ Clear Props</button>
+  <span id="prop_count" style="color:#888;font-size:11px;margin-left:8px;"></span>
+</div>
 <div id="status">Initializing 3D Mannequin...</div>
 
 <script type="importmap">
@@ -153,6 +168,14 @@ const BODY_PARTS = [
 const mannequinRoot = new THREE.Group();
 mannequinRoot.name = 'mannequin';
 scene.add(mannequinRoot);
+
+// --- Props container (generated 3D objects) ---
+const propsGroup = new THREE.Group();
+propsGroup.name = 'props';
+scene.add(propsGroup);
+
+// Track loaded prop names
+const loadedProps = [];
 
 // --- Joint markers (visual debug, can be hidden) ---
 const jointMarkers = [];
@@ -556,6 +579,41 @@ window.__threejs_bridge = {
   init: function() {
     initializeDefaultPose();
     bridgeReady = true;
+    this._setupToolbar();
+  },
+
+  // Internal: wire toolbar buttons
+  _setupToolbar: function() {
+    const btnGen = document.getElementById('btn_gen_prop');
+    const btnClear = document.getElementById('btn_clear_props');
+    const countSpan = document.getElementById('prop_count');
+
+    btnGen.addEventListener('click', () => {
+      // Ask Python to open file dialog and generate prop
+      // If bridge is connected, call Python; otherwise simulate
+      document.getElementById('status').textContent = 'Requesting prop generation...';
+      if (typeof qt !== 'undefined' && qt.webChannelTransport) {
+        // Will trigger Python-side via the callback bridge
+        if (window.__python_bridge && window.__python_bridge.on_generate_prop) {
+          window.__python_bridge.on_generate_prop();
+        } else {
+          document.getElementById('status').textContent = 'Bridge not ready for prop generation';
+        }
+      } else {
+        document.getElementById('status').textContent = 'Standalone: cannot generate (no Python bridge)';
+      }
+    });
+
+    btnClear.addEventListener('click', () => {
+      window.__threejs_bridge.clearProps();
+    });
+
+    // Update prop count periodically
+    setInterval(() => {
+      if (countSpan) {
+        countSpan.textContent = loadedProps.length > 0 ? `${loadedProps.length} prop(s)` : '';
+      }
+    }, 1000);
   },
 
   // Called by Python: setPose(poseData)
@@ -585,8 +643,84 @@ window.__threejs_bridge = {
       bodyGroup.remove(headMesh);
       headMesh = null;
     }
+    this.clearProps();
     initializeDefaultPose();
     return 'ok';
+  },
+
+  // Load generated Three.js factory code and add it to the scene
+  loadModelCode: function(codeStr) {
+    try {
+      // codeStr is a JS function like: function createPropName() { ... return group; }
+      // Evaluate it and call it to get the THREE.Group
+      const createFn = new Function('THREE', '"use strict"; ' + codeStr + '; return create' + codeStr.match(/function create(\w+)/)?.[1] || 'GeneratedProp' + ';')();
+      if (typeof createFn !== 'function') {
+        return 'error: generated code does not export a factory function';
+      }
+      const group = createFn();
+      if (!group || !group.isObject3D) {
+        return 'error: factory did not return a valid Object3D';
+      }
+      propsGroup.add(group);
+      const name = group.name || 'prop_' + loadedProps.length;
+      loadedProps.push(name);
+      document.getElementById('status').textContent = 'Loaded: ' + name;
+      return 'ok:' + name;
+    } catch(e) {
+      return 'error: ' + e.message;
+    }
+  },
+
+  // Evaluate raw JS (used for the prop generator output)
+  evalScript: function(jsStr) {
+    try {
+      const result = eval(jsStr);
+      return 'ok';
+    } catch(e) {
+      return 'error: ' + e.message;
+    }
+  },
+
+  // Add a prop from pre-evaluated JS (alternative path)
+  addPropFromCode: function(codeStr) {
+    // codeStr is the complete JS including the factory function
+    // We eval the code to define the function, then call it
+    try {
+      eval(codeStr);
+      // The code defines a function like createPropName() 
+      // Find the function name
+      const match = codeStr.match(/function\s+(create\w+)/);
+      if (!match) return 'error: no factory function found';
+      const fnName = match[1];
+      const fn = eval(fnName);
+      if (typeof fn !== 'function') return 'error: factory not a function';
+      const group = fn();
+      if (!group || !group.isObject3D) return 'error: invalid Object3D';
+      propsGroup.add(group);
+      const name = group.name || fnName.replace('create', '');
+      loadedProps.push(name);
+      document.getElementById('status').textContent = 'Prop loaded: ' + name;
+      return 'ok';
+    } catch(e) {
+      return 'error: ' + e.message;
+    }
+  },
+
+  // Remove all props
+  clearProps: function() {
+    while (propsGroup.children.length > 0) {
+      const c = propsGroup.children[0];
+      if (c.geometry) c.geometry.dispose();
+      if (c.material) c.material.dispose();
+      propsGroup.remove(c);
+    }
+    loadedProps.length = 0;
+    document.getElementById('status').textContent = 'Props cleared';
+  },
+
+  // List loaded prop names
+  getPropList: function() {
+    return JSON.stringify(loadedProps);
   },
 
   setStatus: function(msg) {
