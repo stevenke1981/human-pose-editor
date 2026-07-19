@@ -8,7 +8,7 @@
   body { margin: 0; overflow: hidden; background: #1a1c22; font-family: 'Segoe UI', sans-serif; }
   #info {
     position: absolute; top: 12px; left: 50%; transform: translateX(-50%);
-    color: #666; font-size: 12px; background: rgba(0,0,0,0.5);
+    color: #888; font-size: 12px; background: rgba(0,0,0,0.5);
     padding: 4px 14px; border-radius: 12px; pointer-events: none;
     user-select: none; opacity: 0.7;
   }
@@ -21,7 +21,7 @@
 </head>
 <body>
 <div id="info">🔄 Drag to orbit · Scroll to zoom · Right-drag to pan</div>
-<div id="status">Initializing...</div>
+<div id="status">Initializing 3D Mannequin...</div>
 
 <script type="importmap">
 {
@@ -36,13 +36,14 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 
-// --- Scene Setup ---
+// ======================================================================
+//  Scene Setup
+// ======================================================================
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x1a1c22);
 
 const camera = new THREE.PerspectiveCamera(40, window.innerWidth / window.innerHeight, 0.1, 1000);
 camera.position.set(4, 3, 6);
-camera.lookAt(0, 0.8, 0);
 
 const renderer = new THREE.WebGLRenderer({ antialias: true });
 renderer.setSize(window.innerWidth, window.innerHeight);
@@ -53,7 +54,6 @@ renderer.toneMapping = THREE.ACESFilmicToneMapping;
 renderer.toneMappingExposure = 1.0;
 document.body.appendChild(renderer.domElement);
 
-// --- Controls ---
 const controls = new OrbitControls(camera, renderer.domElement);
 controls.target.set(0, 0.8, 0);
 controls.enableDamping = true;
@@ -63,20 +63,16 @@ controls.maxDistance = 20;
 controls.update();
 
 // --- Lights ---
-const ambientLight = new THREE.AmbientLight(0x404060, 0.5);
-scene.add(ambientLight);
-
+scene.add(new THREE.AmbientLight(0x404060, 0.5));
 const mainLight = new THREE.DirectionalLight(0xffeedd, 2.5);
 mainLight.position.set(5, 8, 5);
 mainLight.castShadow = true;
 mainLight.shadow.mapSize.width = 1024;
 mainLight.shadow.mapSize.height = 1024;
 scene.add(mainLight);
-
 const fillLight = new THREE.DirectionalLight(0x4488ff, 0.8);
 fillLight.position.set(-3, 1, 4);
 scene.add(fillLight);
-
 const rimLight = new THREE.DirectionalLight(0xffffff, 0.6);
 rimLight.position.set(0, -2, -5);
 scene.add(rimLight);
@@ -84,7 +80,6 @@ scene.add(rimLight);
 // --- Ground ---
 const gridHelper = new THREE.GridHelper(10, 20, 0x444466, 0x333355);
 scene.add(gridHelper);
-
 const groundGeo = new THREE.PlaneGeometry(10, 10);
 const groundMat = new THREE.ShadowMaterial({ opacity: 0.3 });
 const ground = new THREE.Mesh(groundGeo, groundMat);
@@ -93,162 +88,576 @@ ground.position.y = -0.01;
 ground.receiveShadow = true;
 scene.add(ground);
 
-// --- Scene Contents Container ---
-const sceneGroup = new THREE.Group();
-scene.add(sceneGroup);
+// ======================================================================
+//  OpenPose 18-Keypoint Joint Model
+// ======================================================================
+// Index: Name
+// 0: Nose, 1: Neck, 2: RShoulder, 3: RElbow, 4: RWrist
+// 5: LShoulder, 6: LElbow, 7: LWrist
+// 8: RHip, 9: RKnee, 10: RAnkle
+// 11: LHip, 12: LKnee, 13: LAnkle
+// 14: REye, 15: LEye, 16: REar, 17: LEar
 
-// --- QWebChannel Bridge ---
-let bridge = null;
+const JOINT_NAMES = [
+  'nose', 'neck', 'rshoulder', 'relbow', 'rwrist',
+  'lshoulder', 'lelbow', 'lwrist',
+  'rhip', 'rknee', 'rankle',
+  'lhip', 'lknee', 'lankle',
+  'reye', 'leye', 'rear', 'lear'
+];
+
+// Bone connections: pairs of joint indices forming limbs
+// Each entry: [parentIdx, childIdx, boneName]
+const SKELETON_BONES = [
+  [1, 0, 'neck_to_nose'],     // neck → nose
+  [1, 2, 'neck_to_rshoulder'], // neck → R shoulder
+  [2, 3, 'r_upper_arm'],       // R shoulder → R elbow
+  [3, 4, 'r_forearm'],         // R elbow → R wrist
+  [1, 5, 'neck_to_lshoulder'], // neck → L shoulder
+  [5, 6, 'l_upper_arm'],       // L shoulder → L elbow
+  [6, 7, 'l_forearm'],         // L elbow → L wrist
+  [1, 8, 'torso_to_rhip'],     // neck → R hip (torso right)
+  [8, 9, 'r_thigh'],           // R hip → R knee
+  [9, 10, 'r_shin'],           // R knee → R ankle
+  [1, 11, 'torso_to_lhip'],    // neck → L hip (torso left)
+  [11, 12, 'l_thigh'],         // L hip → L knee
+  [12, 13, 'l_shin'],          // L knee → L ankle
+  [0, 14, 'nose_to_reye'],     // nose → R eye
+  [14, 16, 'reye_to_rear'],    // R eye → R ear
+  [0, 15, 'nose_to_leye'],     // nose → L eye
+  [15, 17, 'leye_to_lear'],    // L eye → L ear
+  [16, 2, 'rear_to_rshoulder'],// R ear → R shoulder
+  [17, 5, 'lear_to_lshoulder'],// L ear → L shoulder
+];
+
+// Joint pairs for building body part meshes (wider than bones)
+// [parentJointIdx, childJointIdx, partName, radius]
+const BODY_PARTS = [
+  [8, 11, 'hips',      0.22],   // between hips (pelvis)
+  [11, 1, 'torso_l',   0.18],   // L hip → neck
+  [8, 1, 'torso_r',    0.18],   // R hip → neck
+  [2, 3, 'r_arm_up',   0.10],   // R upper arm
+  [3, 4, 'r_arm_lo',   0.08],   // R forearm
+  [5, 6, 'l_arm_up',   0.10],   // L upper arm
+  [6, 7, 'l_arm_lo',   0.08],   // L forearm
+  [8, 9, 'r_leg_up',   0.14],   // R thigh
+  [9, 10, 'r_leg_lo',  0.11],   // R shin
+  [11, 12, 'l_leg_up', 0.14],   // L thigh
+  [12, 13, 'l_leg_lo', 0.11],   // L shin
+];
+
+// ======================================================================
+//  3D Mannequin Construction
+// ======================================================================
+
+const mannequinRoot = new THREE.Group();
+mannequinRoot.name = 'mannequin';
+scene.add(mannequinRoot);
+
+// --- Joint markers (visual debug, can be hidden) ---
+const jointMarkers = [];
+const jointMarkersGroup = new THREE.Group();
+jointMarkersGroup.visible = false; // hidden by default
+mannequinRoot.add(jointMarkersGroup);
+
+// --- Body part meshes ---
+const bodyParts = []; // { boneName, parentIdx, childIdx, mesh }
+const bodyGroup = new THREE.Group();
+mannequinRoot.add(bodyGroup);
+
+// Shared material cache for body parts
+const SKIN_COLOR = 0x88aadd;
+const JOINT_COLOR = 0x66bbff;
+
+function createCapsuleBetweenPoints(p1, p2, radius, color = SKIN_COLOR) {
+  const p1v = new THREE.Vector3(p1[0], p1[1], p1[2]);
+  const p2v = new THREE.Vector3(p2[0], p2[1], p2[2]);
+  const direction = new THREE.Vector3().copy(p2v).sub(p1v);
+  const length = direction.length();
+  if (length < 0.001) return null;
+  direction.normalize();
+
+  const mid = new THREE.Vector3().copy(p1v).add(p2v).multiplyScalar(0.5);
+  const geo = new THREE.CapsuleGeometry(radius, length * 0.5, 8, 12);
+  const mat = new THREE.MeshStandardMaterial({
+    color: color,
+    roughness: 0.5,
+    metalness: 0.05,
+  });
+  const mesh = new THREE.Mesh(geo, mat);
+  mesh.position.copy(mid);
+  mesh.castShadow = true;
+  mesh.receiveShadow = true;
+
+  // Orient capsule along direction
+  const up = new THREE.Vector3(0, 1, 0);
+  const quat = new THREE.Quaternion().setFromUnitVectors(up, direction);
+  mesh.quaternion.copy(quat);
+
+  return mesh;
+}
+
+function createSphere(pos, radius, color = JOINT_COLOR) {
+  const geo = new THREE.SphereGeometry(radius, 16, 16);
+  const mat = new THREE.MeshStandardMaterial({
+    color: color,
+    roughness: 0.4,
+    metalness: 0.1,
+  });
+  const mesh = new THREE.Mesh(geo, mat);
+  mesh.position.set(pos[0], pos[1], pos[2]);
+  mesh.castShadow = true;
+  return mesh;
+}
+
+// --- Head mesh (special, attached to nose position) ---
+let headMesh = null;
+function createHead() {
+  const geo = new THREE.SphereGeometry(0.22, 24, 24);
+  // Slightly elongated for a more natural head shape
+  const mat = new THREE.MeshStandardMaterial({
+    color: SKIN_COLOR,
+    roughness: 0.4,
+    metalness: 0.05,
+  });
+  const mesh = new THREE.Mesh(geo, mat);
+  mesh.scale.set(1, 1.15, 0.9);
+  mesh.castShadow = true;
+  mesh.receiveShadow = true;
+  return mesh;
+}
+
+// ======================================================================
+//  Pose Update Engine
+// ======================================================================
+
+// Current joint positions in 3D (computed from 2D keypoints)
+const jointPos3D = new Array(18).fill(null).map(() => new THREE.Vector3());
+
+// Reference T-pose keypoints (for computing rotations when no pose data)
+const defaultKeypoints = [
+  [256, 180],  // 0: nose
+  [256, 200],  // 1: neck
+  [306, 200],  // 2: rshoulder
+  [330, 240],  // 3: relbow
+  [350, 270],  // 4: rwrist
+  [206, 200],  // 5: lshoulder
+  [182, 240],  // 6: lelbow
+  [162, 270],  // 7: lwrist
+  [286, 310],  // 8: rhip
+  [286, 370],  // 9: rknee
+  [286, 420],  // 10: rankle
+  [226, 310],  // 11: lhip
+  [226, 370],  // 12: lknee
+  [226, 420],  // 13: lankle
+  [266, 178],  // 14: reye
+  [246, 178],  // 15: leye
+  [270, 178],  // 16: rear
+  [242, 178],  // 17: lear
+];
+
+// Scale mapping from 2D canvas coords (512x512) to 3D scene units
+// 3D scene: 1 unit ≈ 1 meter. Mannequin height ~1.7 units.
+const SCALE_3D = 1.7 / 420; // 420px ≈ 1.7m height from hip to top of head
+
+function keypointsTo3D(keypoints, prevPositions) {
+  // keypoints: array of 18 [x, y, confidence] or [x, y]
+  // Convert 2D canvas coords to 3D positions with depth estimation
+
+  const kps = keypoints.map(kp => {
+    if (kp.length >= 3) return { x: kp[0], y: kp[1], c: kp[2] };
+    return { x: kp[0], y: kp[1], c: 1.0 };
+  });
+
+  // Step 1: Compute reference body center and scale
+  const neck = kps[1];
+  const rHip = kps[8];
+  const lHip = kps[11];
+
+  // Average hip center
+  let hipCenterX, hipCenterY;
+  if (rHip.c > 0.1 && lHip.c > 0.1) {
+    hipCenterX = (rHip.x + lHip.x) / 2;
+    hipCenterY = (rHip.y + lHip.y) / 2;
+  } else if (rHip.c > 0.1) {
+    hipCenterX = rHip.x;
+    hipCenterY = rHip.y;
+  } else if (lHip.c > 0.1) {
+    hipCenterX = lHip.x;
+    hipCenterY = lHip.y;
+  } else {
+    hipCenterX = neck.x;
+    hipCenterY = neck.y + 100;
+  }
+
+  const bodyCenterX = (neck.x + hipCenterX) / 2;
+  const bodyHeight = Math.abs(neck.y - hipCenterY) || 200;
+
+  // Step 2: Estimate depth (z) for each joint
+  // Body twist: difference between shoulder and hip centers
+  const shoulderCenterX = neck.x;
+  const twistAmount = (shoulderCenterX - hipCenterX) * 0.3;
+
+  function estimateZ(idx, baseZ) {
+    const kp = kps[idx];
+    if (kp.c < 0.1) return prevPositions[idx]?.z || 0;
+
+    // Left/right joints get depth from body asymmetry
+    // Right side joints (even, but check specific indices)
+    const isRightSide = [2, 3, 4, 8, 9, 10, 14, 16].includes(idx);
+    const isLeftSide = [5, 6, 7, 11, 12, 13, 15, 17].includes(idx);
+
+    if (isRightSide) {
+      return twistAmount * 0.3 + 0.05;
+    } else if (isLeftSide) {
+      return twistAmount * 0.3 - 0.05;
+    }
+
+    // Arm reach forward (z offset when arm extends forward)
+    if ([3, 4, 6, 7].includes(idx)) {
+      const parentIdx = [3, 4].includes(idx) ? 2 : 5;
+      const grandParent = [3, 4].includes(idx) ? 1 : 1;
+      if (kps[parentIdx]?.c > 0.1 && kps[grandParent]?.c > 0.1) {
+        const armDir = kp.x - kps[parentIdx].x;
+        const parentDir = kps[parentIdx].x - kps[grandParent].x;
+        // If arm extends away from body center, push forward in z
+        if (Math.abs(armDir) > Math.abs(parentDir) * 0.5) {
+          return armDir * 0.15;
+        }
+      }
+    }
+
+    // Arms crossing body midline → front
+    if ([4, 7].includes(idx) && kp.c > 0.1) {
+      const bodyCenterXLocal = shoulderCenterX;
+      if (Math.abs(kp.x - bodyCenterXLocal) < 20) {
+        return 0.15; // arm reaching across body
+      }
+    }
+
+    return baseZ || 0;
+  }
+
+  // Step 3: Convert to 3D
+  const positions = [];
+  for (let i = 0; i < 18; i++) {
+    const kp = kps[i];
+    if (kp.c < 0.001) {
+      // Joint not visible: use previous position if available
+      if (prevPositions[i]) {
+        positions.push(prevPositions[i].clone());
+      } else {
+        // Fall back to default T-pose
+        const def = defaultKeypoints[i];
+        const x3d = (def[0] - 256) * SCALE_3D;
+        const y3d = -(def[1] - 310) * SCALE_3D;
+        positions.push(new THREE.Vector3(x3d, y3d, estimateZ(i, 0)));
+      }
+      continue;
+    }
+
+    // Map canvas coords to 3D: center at (256, 310) which is hip level
+    const x3d = (kp.x - 256) * SCALE_3D;
+    const y3d = -(kp.y - 310) * SCALE_3D; // Y up in Three.js
+    const z3d = estimateZ(i, 0);
+
+    positions.push(new THREE.Vector3(x3d, y3d, z3d));
+  }
+
+  return positions;
+}
+
+// ======================================================================
+//  Build/Update Mannequin Meshes
+// ======================================================================
+
+function buildMannequin(positions) {
+  // Clear previous
+  while (bodyGroup.children.length > 0) {
+    const c = bodyGroup.children[0];
+    if (c.geometry) c.geometry.dispose();
+    if (c.material) c.material.dispose();
+    bodyGroup.remove(c);
+  }
+  bodyParts.length = 0;
+
+  // Build body part capsules
+  const added = new Set();
+  for (const [pIdx, cIdx, name, radius] of BODY_PARTS) {
+    const p1 = positions[pIdx];
+    const p2 = positions[cIdx];
+    if (!p1 || !p2) continue;
+
+    const mesh = createCapsuleBetweenPoints(
+      [p1.x, p1.y, p1.z], [p2.x, p2.y, p2.z],
+      radius, SKIN_COLOR
+    );
+    if (mesh) {
+      mesh.name = name;
+      bodyGroup.add(mesh);
+      bodyParts.push({ name, parentIdx: pIdx, childIdx: cIdx, mesh });
+    }
+    added.add(`${pIdx}-${cIdx}`);
+  }
+
+  // Head (at nose position, offset slightly for neck)
+  const nosePos = positions[0];
+  if (nosePos) {
+    if (headMesh) {
+      headMesh.position.copy(nosePos);
+      headMesh.position.y += 0.12; // head sits above nose
+    } else {
+      headMesh = createHead();
+      headMesh.position.copy(nosePos);
+      headMesh.position.y += 0.12;
+      bodyGroup.add(headMesh);
+    }
+  }
+
+  // Neck capsule (from neck pos up to head base)
+  const neckPos = positions[1];
+  if (neckPos && nosePos) {
+    const neckMesh = createCapsuleBetweenPoints(
+      [neckPos.x, neckPos.y, neckPos.z],
+      [nosePos.x, nosePos.y - 0.05, nosePos.z],
+      0.12, SKIN_COLOR
+    );
+    if (neckMesh) {
+      neckMesh.name = 'neck';
+      bodyGroup.add(neckMesh);
+    }
+  }
+
+  // Joint markers (small spheres at each joint)
+  for (let i = 0; i < 18; i++) {
+    const pos = positions[i];
+    if (!pos) continue;
+    const marker = createSphere([pos.x, pos.y, pos.z], 0.04, JOINT_COLOR);
+    marker.name = `joint_${i}`;
+    jointMarkersGroup.add(marker);
+    jointMarkers.push(marker);
+  }
+}
+
+function updateMannequin(positions) {
+  // Update body part meshes (recreate with new positions)
+  // A more optimized approach would use matrix updates, but for Phase 2
+  // we rebuild the capsules for simplicity and correctness
+
+  // Clear and rebuild
+  for (const part of bodyParts) {
+    if (part.mesh.parent) {
+      part.mesh.parent.remove(part.mesh);
+    }
+    if (part.mesh.geometry) part.mesh.geometry.dispose();
+    if (part.mesh.material) part.mesh.material.dispose();
+  }
+  bodyParts.length = 0;
+
+  // Rebuild body part capsules
+  for (const [pIdx, cIdx, name, radius] of BODY_PARTS) {
+    const p1 = positions[pIdx];
+    const p2 = positions[cIdx];
+    if (!p1 || !p2) continue;
+
+    const mesh = createCapsuleBetweenPoints(
+      [p1.x, p1.y, p1.z], [p2.x, p2.y, p2.z],
+      radius, SKIN_COLOR
+    );
+    if (mesh) {
+      mesh.name = name;
+      bodyGroup.add(mesh);
+      bodyParts.push({ name, parentIdx: pIdx, childIdx: cIdx, mesh });
+    }
+  }
+
+  // Update head
+  const nosePos = positions[0];
+  if (headMesh && nosePos) {
+    headMesh.position.copy(nosePos);
+    headMesh.position.y += 0.12;
+  }
+
+  // Update neck
+  const neckPos = positions[1];
+  if (neckPos && nosePos) {
+    const neckMesh = createCapsuleBetweenPoints(
+      [neckPos.x, neckPos.y, neckPos.z],
+      [nosePos.x, nosePos.y - 0.05, nosePos.z],
+      0.12, SKIN_COLOR
+    );
+    if (neckMesh) {
+      neckMesh.name = 'neck';
+      bodyGroup.add(neckMesh);
+    }
+  }
+
+  // Update joint markers
+  while (jointMarkersGroup.children.length > 0) {
+    const c = jointMarkersGroup.children[0];
+    if (c.geometry) c.geometry.dispose();
+    if (c.material) c.material.dispose();
+    jointMarkersGroup.remove(c);
+  }
+  jointMarkers.length = 0;
+
+  for (let i = 0; i < 18; i++) {
+    const pos = positions[i];
+    if (!pos) continue;
+    const marker = createSphere([pos.x, pos.y, pos.z], 0.04, JOINT_COLOR);
+    marker.name = `joint_${i}`;
+    jointMarkersGroup.add(marker);
+    jointMarkers.push(marker);
+  }
+}
+
+// ======================================================================
+//  Public API (called from Python via bridge)
+// ======================================================================
+
+let currentPositions = null;
+
+// Build default T-pose mannequin
+function initializeDefaultPose() {
+  const pos = keypointsTo3D(defaultKeypoints, []);
+  currentPositions = pos;
+  buildMannequin(pos);
+  document.getElementById('status').textContent = 'Default pose loaded';
+}
+
+function updatePoseFromKeypoints(keypoints) {
+  // keypoints: array of 18 [x, y, confidence] or {x, y, c} objects
+  // where x, y are in 512x512 canvas coords or normalized
+
+  if (!keypoints || keypoints.length < 18) {
+    return;
+  }
+
+  const pos = keypointsTo3D(keypoints, currentPositions);
+  currentPositions = pos;
+
+  if (bodyParts.length === 0) {
+    buildMannequin(pos);
+  } else {
+    updateMannequin(pos);
+  }
+
+  document.getElementById('status').textContent = 'Pose synced';
+}
+
+// ======================================================================
+//  QWebChannel Bridge
+// ======================================================================
+
 let bridgeReady = false;
 
-// Exposed for Python calls via evaluateJavaScript
 window.__threejs_bridge = {
-  setBridge: function(obj) {
-    bridge = obj;
+  // Initialize with default pose
+  init: function() {
+    initializeDefaultPose();
     bridgeReady = true;
-    document.getElementById('status').textContent = 'Bridge connected';
   },
-  // Scene manipulation API
-  clearScene: function() {
-    while(sceneGroup.children.length > 0) {
-      const child = sceneGroup.children[0];
-      if (child.geometry) child.geometry.dispose();
-      if (child.material) child.material.dispose();
-      sceneGroup.remove(child);
-    }
-    document.getElementById('status').textContent = 'Scene cleared';
-  },
-  addMesh: function(jsonStr) {
+
+  // Called by Python: setPose(poseData)
+  setPose: function(jsonStr) {
     try {
       const data = JSON.parse(jsonStr);
-      // data: { geometry, material, position, rotation, scale }
-      let geo;
-      switch(data.geometry?.type) {
-        case 'box':
-          geo = new THREE.BoxGeometry(...(data.geometry.params || [1,1,1]));
-          break;
-        case 'sphere':
-          geo = new THREE.SphereGeometry(...(data.geometry.params || [0.5, 32, 32]));
-          break;
-        case 'cylinder':
-          geo = new THREE.CylinderGeometry(...(data.geometry.params || [0.5, 0.5, 1, 32]));
-          break;
-        case 'capsule':
-          geo = new THREE.CapsuleGeometry(...(data.geometry.params || [0.3, 0.6, 8, 16]));
-          break;
-        default:
-          geo = new THREE.Group();
+      if (data.points) {
+        updatePoseFromKeypoints(data.points);
+      } else if (data.keypoints) {
+        updatePoseFromKeypoints(data.keypoints);
       }
-      const mat = new THREE.MeshStandardMaterial({
-        color: data.material?.color || 0x4488ff,
-        roughness: data.material?.roughness ?? 0.4,
-        metalness: data.material?.metalness ?? 0.1,
-      });
-      const mesh = new THREE.Mesh(geo, mat);
-      if (data.position) mesh.position.set(...data.position);
-      if (data.rotation) mesh.rotation.set(...data.rotation);
-      if (data.scale) mesh.scale.set(...data.scale);
-      mesh.castShadow = true;
-      mesh.receiveShadow = true;
-      if (data.name) mesh.name = data.name;
-      sceneGroup.add(mesh);
       return 'ok';
     } catch(e) {
       return 'error: ' + e.message;
     }
   },
-  setPose: function(jsonStr) {
-    // Placeholder for Phase 2: pose the mannequin
-    document.getElementById('status').textContent = 'Pose update received';
-  },
-  loadModelCode: function(codeStr) {
-    // Placeholder for Phase 3: evaluate Three.js factory code
-    try {
-      // In Phase 3, this will execute generated factory code
-      document.getElementById('status').textContent = 'Model code loaded';
-      return 'ok';
-    } catch(e) {
-      return 'error: ' + e.message;
+
+  clearScene: function() {
+    while (bodyGroup.children.length > 0) {
+      const c = bodyGroup.children[0];
+      if (c.geometry) c.geometry.dispose();
+      if (c.material) c.material.dispose();
+      bodyGroup.remove(c);
     }
+    bodyParts.length = 0;
+    if (headMesh) {
+      bodyGroup.remove(headMesh);
+      headMesh = null;
+    }
+    initializeDefaultPose();
+    return 'ok';
   },
+
   setStatus: function(msg) {
     document.getElementById('status').textContent = msg;
-  }
-};
+  },
 
-// --- QWebChannel Initialization (called after page loads) ---
-window.initBridge = function() {
-  // This will be called from Python via page().runJavaScript after QWebChannel is set up
-  if (typeof QWebChannel !== 'undefined') {
-    new QWebChannel(qt.webChannelTransport, function(channel) {
-      window.__threejs_bridge.setBridge(channel.objects.bridge);
+  toggleJoints: function(visible) {
+    jointMarkersGroup.visible = visible;
+  },
+
+  getScreenshotInfo: function() {
+    return JSON.stringify({
+      cameraPos: [camera.position.x, camera.position.y, camera.position.z],
+      target: [controls.target.x, controls.target.y, controls.target.z],
     });
   }
 };
 
-// Try loading QWebChannel dynamically if not already loaded
-function loadQWebChannel() {
+// ======================================================================
+//  QWebChannel Initialization
+// ======================================================================
+
+function setupBridge() {
   if (typeof QWebChannel !== 'undefined') {
-    window.initBridge();
-    return;
+    new QWebChannel(qt.webChannelTransport, function(channel) {
+      window.__threejs_bridge.init();
+      const pythonBridge = channel.objects.bridge;
+      if (pythonBridge && pythonBridge.on_scene_ready) {
+        pythonBridge.on_scene_ready('ready');
+      }
+    });
+  } else {
+    // Standalone mode: init default pose
+    setTimeout(() => {
+      initializeDefaultPose();
+      document.getElementById('status').textContent = 'Standalone mode · Default mannequin';
+    }, 500);
   }
-  // QWebChannel should be injected by the QWebEnginePage
-  // Poll briefly for it
-  let attempts = 0;
-  const interval = setInterval(() => {
-    attempts++;
-    if (typeof QWebChannel !== 'undefined') {
-      clearInterval(interval);
-      window.initBridge();
-    } else if (attempts > 50) {
-      clearInterval(interval);
-      document.getElementById('status').textContent = 'Bridge not available (running standalone)';
-    }
-  }, 100);
 }
 
-setTimeout(loadQWebChannel, 500);
+// Poll for QWebChannel
+let attempts = 0;
+const interval = setInterval(() => {
+  attempts++;
+  if (typeof QWebChannel !== 'undefined') {
+    clearInterval(interval);
+    setupBridge();
+  } else if (attempts > 60) {
+    clearInterval(interval);
+    setupBridge(); // Will fall through to standalone
+  }
+}, 100);
 
-// --- Resize ---
+// ======================================================================
+//  Resize & Animation
+// ======================================================================
+
 window.addEventListener('resize', () => {
   camera.aspect = window.innerWidth / window.innerHeight;
   camera.updateProjectionMatrix();
   renderer.setSize(window.innerWidth, window.innerHeight);
 });
 
-// --- Animation Loop ---
 function animate() {
   requestAnimationFrame(animate);
   controls.update();
-  renderer.render(scene, camera);
+  renderer.render(scene, renderer.domElement);
 }
 animate();
 
-// --- Standalone test: show a default mannequin placeholder ---
-// Shows a simple cylinder body when no bridge is connected (standalone mode)
-setTimeout(() => {
-  if (!bridgeReady) {
-    document.getElementById('status').textContent = 'Standalone mode · Default scene';
-    // Add a simple mannequin placeholder
-    const body = new THREE.Mesh(
-      new THREE.CylinderGeometry(0.5, 0.5, 1.2, 16),
-      new THREE.MeshStandardMaterial({ color: 0x6688cc, roughness: 0.5, metalness: 0.1 })
-    );
-    body.position.y = 0.6;
-    body.castShadow = true;
-    sceneGroup.add(body);
-    
-    const head = new THREE.Mesh(
-      new THREE.SphereGeometry(0.3, 24, 24),
-      new THREE.MeshStandardMaterial({ color: 0x88aadd, roughness: 0.4 })
-    );
-    head.position.y = 1.4;
-    head.castShadow = true;
-    sceneGroup.add(head);
-  }
-}, 2000);
-
-console.log('Three.js Viewer initialized');
+console.log('3D Mannequin Viewer initialized');
 </script>
 </body>
 </html>

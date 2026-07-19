@@ -286,6 +286,7 @@ class MainWindow(QMainWindow):
             self.canvas.selected_char_idx = -1
             
         self.canvas.update()
+        self.sync_3d_pose()
 
     def update_character_ui_list(self):
         """Updates character status indicators on the sidebar buttons."""
@@ -924,6 +925,7 @@ class MainWindow(QMainWindow):
             sk["limb_scale"]
         )
         self.canvas.update()
+        self.sync_3d_pose()
 
     def _on_center_tab_changed(self, index: int):
         """Handle tab switches between 2D Canvas and 3D View."""
@@ -932,11 +934,19 @@ class MainWindow(QMainWindow):
             if self.skeletons and self.canvas.selected_char_idx >= 0:
                 active = self.skeletons[self.canvas.selected_char_idx]
                 if "points" in active:
-                    self.threejs_viewer.set_pose({
-                        "points": active["points"],
-                        "connections": active.get("connections", [])
-                    })
+                    self.threejs_viewer.set_pose(active["points"])
             self.threejs_viewer.set_status("3D View ready — Drag to orbit")
+
+    def sync_3d_pose(self):
+        """Send current pose data to the 3D viewer if it's visible."""
+        if not hasattr(self, 'threejs_viewer'):
+            return
+        if self.center_tabs.currentIndex() != 1:
+            return  # Not on the 3D tab
+        if self.skeletons and self.canvas.selected_char_idx >= 0:
+            active = self.skeletons[self.canvas.selected_char_idx]
+            if "points" in active:
+                self.threejs_viewer.set_pose(active["points"])
 
     def on_canvas_pose_changed(self):
         """Called when user manually drags a joint in the canvas. Resets sliders baseline."""
@@ -948,6 +958,9 @@ class MainWindow(QMainWindow):
         # Copy modified points to original points establishing a new baseline pose
         sk["original_points"] = list(sk["points"])
         
+        # Sync 3D view if active
+        self.sync_3d_pose()
+
         # Mark as modified pose
         if not sk.get("pose_name", "").endswith("_modified"):
             if sk.get("pose_name", "") and sk.get("pose_name", "") != "custom":
@@ -1027,6 +1040,7 @@ class MainWindow(QMainWindow):
         self.slider_limb.setValue(100)
         
         self.canvas.update()
+        self.sync_3d_pose()
 
     def apply_double_preset(self, name: str):
         """Applies dual-character interactive preset (Hug, fight, handshake). Adds character if only one exists."""

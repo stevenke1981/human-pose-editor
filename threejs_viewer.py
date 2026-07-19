@@ -151,13 +151,16 @@ class ThreeJSViewer(QWebEngineView):
         }
         self._call_js(f"window.__threejs_bridge.addMesh({json.dumps(json.dumps(data))});")
 
-    def set_pose(self, pose_data: dict):
-        """Send pose data (joint positions/angles) to the 3D mannequin.
+    def set_pose(self, points: list):
+        """Send OpenPose keypoints to the 3D mannequin.
 
         Args:
-            pose_data: dict with joint data — format TBD in Phase 2
+            points: list of 18 [x, y] or [x, y, confidence] tuples
+                    in the app's 512x512 canvas coordinate space.
         """
-        json_str = json.dumps(pose_data)
+        # Wrap points in the format expected by the JS bridge
+        payload = {"points": points}
+        json_str = json.dumps(payload)
         self._call_js(f"window.__threejs_bridge.setPose({json.dumps(json_str)});")
 
     def load_model_code(self, code: str):
